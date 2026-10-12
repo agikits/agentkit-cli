@@ -18,6 +18,9 @@ try {
     await assert.rejects(auditExport(safe), /Forbidden export path/);
     await rm(file);
   }
+  for (const selection of ['../secret', 'src/../../secret', String.raw`src\..\..\secret`, String.raw`C:\private\file`, String.raw`\\server\share\file`]) {
+    await assert.rejects(auditExport(safe, { paths: [selection] }), /stay under its root/);
+  }
   const secret = path.join(temp, 'secret');
   await writeFile(secret, 'fake-secret');
   const link = path.join(safe, 'src/link.ts');
@@ -30,7 +33,9 @@ try {
   await mkdir(nested);
   const parentLink = path.join(safe, 'linked-parent');
   await symlink(folder, parentLink, 'dir');
-  await assert.rejects(auditExport(safe, { paths: ['linked-parent/approved'] }), /Unexpected symlink/);
+  for (const selection of ['linked-parent/approved', String.raw`linked-parent\approved`]) {
+    await assert.rejects(auditExport(safe, { paths: [selection] }), /Unexpected symlink/);
+  }
   await rm(parentLink);
   await symlink(folder, link, 'dir');
   await assert.rejects(auditExport(safe), /Unexpected symlink/);
