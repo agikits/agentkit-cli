@@ -1,0 +1,38 @@
+{
+  "productCommit": "60b92034dd4ad2246b9f749937e24a492ae3c467",
+  "source": "apps/chatbots/app/api/v2/_lib/openapi/spec.ts",
+  "sha256": "6f6d0dc0fff85441ebffaa173256cb0b61c70b0e61d52239a5367f59f6a21dd4",
+  "deploymentStatus": "schema-observed",
+  "liveBaseline": {
+    "path": "deployed-openapi.json",
+    "sha256": "6f6d0dc0fff85441ebffaa173256cb0b61c70b0e61d52239a5367f59f6a21dd4"
+  },
+  "playgroundChange": {
+    "productBranch": "sideplan/cli-playground-chats",
+    "deploymentStatus": "schema-observed",
+    "productCommit": "00f1f9c54",
+    "authenticatedRuntimeAcceptance": "pending"
+  },
+  "emailChange": {
+    "productBranch": "sideplan/email-cli-read",
+    "deploymentStatus": "schema-observed",
+    "source": "apps/chatbots/app/api/v2/_lib/openapi/email-spec.ts",
+    "productCommit": "2212d96204a9d1f042b7ad6e3850c3e19f19aaa4",
+    "productPullRequest": "https://github.com/agikits/agentkit/pull/760",
+    "authenticatedRuntimeAcceptance": "pending"
+  },
+  "authenticatedRuntimeAcceptance": "pending",
+  "liveObservation": {
+    "url": "https://agentkit.ai/openapi.json",
+    "observedAt": "2026-10-12T05:39:57.996864+00:00",
+    "sha256": "6f6d0dc0fff85441ebffaa173256cb0b61c70b0e61d52239a5367f59f6a21dd4",
+    "verification": "Entire live specification equals the rendered product source at productCommit. All five imported source modules match that commit.",
+    "sourceModules": [
+      "apps/chatbots/app/api/v2/_lib/openapi/spec.ts",
+      "apps/chatbots/app/api/v2/_lib/openapi/management-spec.ts",
+      "apps/chatbots/app/api/v2/_lib/openapi/email-spec.ts",
+      "apps/chatbots/app/api/v2/_lib/schemas/email.ts",
+      "apps/chatbots/app/[locale]/home/[account]/(dashboard)/chatbots/[chatbot]/_lib/schema/ai-settings.schema.ts"
+    ]
+  }
+}

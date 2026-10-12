@@ -1,0 +1,41 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.agikits/agentkit",
+  "title": "Agentkit",
+  "description": "Read Agentkit agents, knowledge and conversations through local MCP. Read-only by default.",
+  "websiteUrl": "https://agentkit.ai",
+  "repository": {
+    "url": "https://github.com/agikits/agentkit-cli",
+    "source": "github"
+  },
+  "version": "0.2.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@agikits/agentkit",
+      "version": "0.2.0",
+      "runtimeHint": "npx",
+      "packageArguments": [
+        { "type": "positional", "value": "mcp", "isRequired": true }
+      ],
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        {
+          "name": "AGENTKIT_API_KEY",
+          "description": "Workspace API key. Optional when agentkit init --with-token has saved a key for the configured API origin.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "publicationStatus": "not-published",
+      "namespaceVerification": "requires-mcp-publisher-authentication",
+      "launcherStatus": "uses-agentkit-default-bin-with-mcp-subcommand"
+    }
+  }
+}

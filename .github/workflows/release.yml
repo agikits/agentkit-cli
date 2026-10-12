@@ -1,0 +1,68 @@
+name: Release package
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Verify the package or publish an approved version tag
+        type: choice
+        options: [dry-run, publish]
+        default: dry-run
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: npm-release
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - run: npm install --global npm@11
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run verify:package
+      - run: node scripts/verify-export.mjs
+      - run: npm publish --dry-run --ignore-scripts --access public
+  publish:
+    if: inputs.action == 'publish'
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: npm-release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+      - run: npm install --global npm@11
+      - name: Require matching public package, repository and version tag
+        env:
+          RELEASE_REF: ${{ github.ref }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+          REPOSITORY_PRIVATE: ${{ github.event.repository.private }}
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+          assert.equal(pkg.private, false, 'Set private:false in the reviewed public candidate');
+          assert.equal(process.env.REPOSITORY_PRIVATE, 'false', 'Release must originate in a public repository');
+          assert.equal(process.env.RELEASE_REF, `refs/tags/v${pkg.version}`, 'Dispatch publish against the matching version tag');
+          assert.equal(pkg.repository?.url, `git+https://github.com/${process.env.RELEASE_REPOSITORY}.git`, 'Package repository must match this release repository');
+          assert.equal(pkg.license, 'MIT');
+          JS
+      - run: npm ci
+      - run: npm run build
+      - run: npm publish --ignore-scripts --access public --tag beta

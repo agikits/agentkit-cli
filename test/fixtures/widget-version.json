@@ -1,0 +1,530 @@
+{
+  "widgetVersion": {
+    "id": "11111111-1111-4111-8111-111111111111",
+    "chatbot_id": "22222222-2222-4222-8222-222222222222",
+    "widget_id": "33333333-3333-4333-8333-333333333333",
+    "version_number": 1,
+    "content_hash": "a526de5ba1f9639d6a1323b7af59ab0a794394d094a6c61517f5bb7f2493979a",
+    "language_version": 1,
+    "catalog_version": 1,
+    "created_at": "2026-09-05T10:00:00.000Z",
+    "created_by": "44444444-4444-4444-8444-444444444444",
+    "definition": {
+      "languageVersion": 1,
+      "catalogVersion": 1,
+      "source": "<Card title={title} size=\"md\">\n  <State name=\"choosing\">\n    <Row gap=\"sm\" wrap>\n      {slots.map((slot) => (\n        <Button key={slot.id}\n          variant={slot.id === variables.selectedSlot ? \"default\" : \"outline\"}\n          selected={slot.id === variables.selectedSlot}\n          onClick=\"pickSlot\" inputs={{ slotId: slot.id }} disabled={!slot.available}>\n          {slot.label}\n        </Button>\n      ))}\n    </Row>\n    {slots.length === 0 && <Caption>No times available. Ask for another day.</Caption>}\n    {slots.length > 0 && <Button width=\"full\" onClick=\"bookSlot\"\n      inputs={{ slotId: variables.selectedSlot }} disabled={!variables.selectedSlot}>Confirm booking</Button>}\n  </State>\n  <State name=\"booked\">\n    <Row gap=\"xs\" align=\"center\">\n      <Icon name=\"check\" color=\"success\" />\n      <Text weight=\"medium\">Booked for {variables.bookedLabel}</Text>\n    </Row>\n  </State>\n</Card>",
+      "schemaSource": "z.object({\n  title: z.string().default(\"Pick a time\"),\n  slots: z.array(z.object({\n    id: z.string(),\n    label: z.string().describe(\"Formatted time. Include the date and time zone in the card title.\"),\n    available: z.boolean().default(true),\n  })).max(50),\n})",
+      "schema": {
+        "type": "object",
+        "properties": [
+          {
+            "key": "title",
+            "schema": {
+              "type": "string",
+              "default": "Pick a time",
+              "optional": true
+            }
+          },
+          {
+            "key": "slots",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": [
+                  {
+                    "key": "id",
+                    "schema": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "key": "label",
+                    "schema": {
+                      "type": "string",
+                      "description": "Formatted time. Include the date and time zone in the card title."
+                    }
+                  },
+                  {
+                    "key": "available",
+                    "schema": {
+                      "type": "boolean",
+                      "default": true,
+                      "optional": true
+                    }
+                  }
+                ]
+              },
+              "maxItems": 50
+            }
+          }
+        ]
+      },
+      "ast": {
+        "languageVersion": 1,
+        "catalogVersion": 1,
+        "root": {
+          "t": "el",
+          "tag": "Card",
+          "props": {
+            "title": {
+              "k": "path",
+              "root": "data",
+              "segs": [
+                "title"
+              ]
+            },
+            "size": {
+              "k": "lit",
+              "v": "md"
+            }
+          },
+          "children": [
+            {
+              "t": "el",
+              "tag": "State",
+              "props": {
+                "name": {
+                  "k": "lit",
+                  "v": "choosing"
+                }
+              },
+              "children": [
+                {
+                  "t": "el",
+                  "tag": "Row",
+                  "props": {
+                    "gap": {
+                      "k": "lit",
+                      "v": "sm"
+                    },
+                    "wrap": {
+                      "k": "lit",
+                      "v": true
+                    }
+                  },
+                  "children": [
+                    {
+                      "t": "map",
+                      "source": {
+                        "k": "path",
+                        "root": "data",
+                        "segs": [
+                          "slots"
+                        ]
+                      },
+                      "item": "slot",
+                      "body": [
+                        {
+                          "t": "el",
+                          "tag": "Button",
+                          "props": {
+                            "variant": {
+                              "k": "cond",
+                              "test": {
+                                "k": "bin",
+                                "op": "===",
+                                "l": {
+                                  "k": "path",
+                                  "root": "scope",
+                                  "segs": [
+                                    "slot",
+                                    "id"
+                                  ]
+                                },
+                                "r": {
+                                  "k": "path",
+                                  "root": "variables",
+                                  "segs": [
+                                    "selectedSlot"
+                                  ]
+                                }
+                              },
+                              "then": {
+                                "k": "lit",
+                                "v": "default"
+                              },
+                              "else": {
+                                "k": "lit",
+                                "v": "outline"
+                              }
+                            },
+                            "selected": {
+                              "k": "bin",
+                              "op": "===",
+                              "l": {
+                                "k": "path",
+                                "root": "scope",
+                                "segs": [
+                                  "slot",
+                                  "id"
+                                ]
+                              },
+                              "r": {
+                                "k": "path",
+                                "root": "variables",
+                                "segs": [
+                                  "selectedSlot"
+                                ]
+                              }
+                            },
+                            "onClick": {
+                              "k": "fn",
+                              "id": "pickSlot"
+                            },
+                            "inputs": {
+                              "k": "obj",
+                              "entries": [
+                                {
+                                  "key": "slotId",
+                                  "value": {
+                                    "k": "path",
+                                    "root": "scope",
+                                    "segs": [
+                                      "slot",
+                                      "id"
+                                    ]
+                                  }
+                                }
+                              ]
+                            },
+                            "disabled": {
+                              "k": "not",
+                              "e": {
+                                "k": "path",
+                                "root": "scope",
+                                "segs": [
+                                  "slot",
+                                  "available"
+                                ]
+                              }
+                            }
+                          },
+                          "children": [
+                            {
+                              "t": "expr",
+                              "expr": {
+                                "k": "path",
+                                "root": "scope",
+                                "segs": [
+                                  "slot",
+                                  "label"
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "t": "if",
+                  "test": {
+                    "k": "bin",
+                    "op": "===",
+                    "l": {
+                      "k": "path",
+                      "root": "data",
+                      "segs": [
+                        "slots",
+                        "length"
+                      ]
+                    },
+                    "r": {
+                      "k": "lit",
+                      "v": 0
+                    }
+                  },
+                  "then": [
+                    {
+                      "t": "el",
+                      "tag": "Caption",
+                      "props": {},
+                      "children": [
+                        {
+                          "t": "text",
+                          "value": "No times available. Ask for another day."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "t": "if",
+                  "test": {
+                    "k": "bin",
+                    "op": ">",
+                    "l": {
+                      "k": "path",
+                      "root": "data",
+                      "segs": [
+                        "slots",
+                        "length"
+                      ]
+                    },
+                    "r": {
+                      "k": "lit",
+                      "v": 0
+                    }
+                  },
+                  "then": [
+                    {
+                      "t": "el",
+                      "tag": "Button",
+                      "props": {
+                        "width": {
+                          "k": "lit",
+                          "v": "full"
+                        },
+                        "onClick": {
+                          "k": "fn",
+                          "id": "bookSlot"
+                        },
+                        "inputs": {
+                          "k": "obj",
+                          "entries": [
+                            {
+                              "key": "slotId",
+                              "value": {
+                                "k": "path",
+                                "root": "variables",
+                                "segs": [
+                                  "selectedSlot"
+                                ]
+                              }
+                            }
+                          ]
+                        },
+                        "disabled": {
+                          "k": "not",
+                          "e": {
+                            "k": "path",
+                            "root": "variables",
+                            "segs": [
+                              "selectedSlot"
+                            ]
+                          }
+                        }
+                      },
+                      "children": [
+                        {
+                          "t": "text",
+                          "value": "Confirm booking"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "t": "el",
+              "tag": "State",
+              "props": {
+                "name": {
+                  "k": "lit",
+                  "v": "booked"
+                }
+              },
+              "children": [
+                {
+                  "t": "el",
+                  "tag": "Row",
+                  "props": {
+                    "gap": {
+                      "k": "lit",
+                      "v": "xs"
+                    },
+                    "align": {
+                      "k": "lit",
+                      "v": "center"
+                    }
+                  },
+                  "children": [
+                    {
+                      "t": "el",
+                      "tag": "Icon",
+                      "props": {
+                        "name": {
+                          "k": "lit",
+                          "v": "check"
+                        },
+                        "color": {
+                          "k": "lit",
+                          "v": "success"
+                        }
+                      },
+                      "children": []
+                    },
+                    {
+                      "t": "el",
+                      "tag": "Text",
+                      "props": {
+                        "weight": {
+                          "k": "lit",
+                          "v": "medium"
+                        }
+                      },
+                      "children": [
+                        {
+                          "t": "text",
+                          "value": "Booked for "
+                        },
+                        {
+                          "t": "expr",
+                          "expr": {
+                            "k": "path",
+                            "root": "variables",
+                            "segs": [
+                              "bookedLabel"
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "examples": [
+        {
+          "name": "Default",
+          "data": {
+            "title": "September 25 · UTC",
+            "slots": [
+              {
+                "id": "s1",
+                "label": "3:00 PM"
+              },
+              {
+                "id": "s2",
+                "label": "3:30 PM"
+              },
+              {
+                "id": "s3",
+                "label": "4:00 PM"
+              },
+              {
+                "id": "s4",
+                "label": "5:00 PM",
+                "available": false
+              },
+              {
+                "id": "s5",
+                "label": "6:00 PM"
+              },
+              {
+                "id": "s6",
+                "label": "6:15 PM"
+              }
+            ]
+          }
+        },
+        {
+          "name": "No slots",
+          "data": {
+            "slots": []
+          }
+        }
+      ],
+      "functions": [
+        {
+          "id": "pickSlot",
+          "name": "Pick time",
+          "inputs": [
+            {
+              "name": "slotId",
+              "type": "string",
+              "required": true
+            }
+          ],
+          "loading": "none",
+          "type": "set_variables",
+          "variables": {
+            "selectedSlot": "{{slotId}}"
+          }
+        },
+        {
+          "id": "bookSlot",
+          "name": "Book slot",
+          "inputs": [
+            {
+              "name": "slotId",
+              "type": "string",
+              "required": true
+            }
+          ],
+          "loading": "container",
+          "followUps": {
+            "onSuccess": [
+              {
+                "type": "set_variables",
+                "variables": {
+                  "bookedLabel": "{{result.label}}"
+                }
+              }
+            ]
+          },
+          "type": "server",
+          "method": "POST",
+          "url": "https://example.com/api/book",
+          "headers": [],
+          "query": [],
+          "body": "{\"slotId\":\"{{slotId}}\"}",
+          "returnFields": [
+            "label"
+          ]
+        }
+      ],
+      "states": [
+        {
+          "name": "choosing",
+          "visibility": "conditional",
+          "condition": {
+            "field": "variables.bookedLabel",
+            "operator": "empty"
+          }
+        },
+        {
+          "name": "booked",
+          "visibility": "conditional",
+          "condition": {
+            "field": "variables.bookedLabel",
+            "operator": "not_empty"
+          }
+        }
+      ],
+      "variables": [
+        {
+          "name": "selectedSlot",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "name": "bookedLabel",
+          "type": "string",
+          "default": ""
+        }
+      ],
+      "dependencies": {
+        "functions": [
+          "bookSlot",
+          "pickSlot"
+        ],
+        "states": [
+          "booked",
+          "choosing"
+        ],
+        "variables": [
+          "bookedLabel",
+          "selectedSlot"
+        ]
+      },
+      "hash": "a526de5ba1f9639d6a1323b7af59ab0a794394d094a6c61517f5bb7f2493979a"
+    }
+  }
+}

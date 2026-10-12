@@ -1,0 +1,8 @@
+{
+  "name": "agentkit",
+  "version": "0.2.0",
+  "description": "Manage Agentkit agents and knowledge through a local MCP process.",
+  "author": { "name": "Agentkit contributors" },
+  "license": "MIT",
+  "mcpServers": "./mcp.json"
+}
