@@ -1,0 +1,88 @@
+{
+  "name": "@agikits/agentkit",
+  "version": "0.2.0",
+  "description": "Agentkit SDK, CLI and stateless MCP for managing AI chatbots.",
+  "type": "module",
+  "private": false,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agikits/agentkit-cli.git"
+  },
+  "homepage": "https://agentkit.ai",
+  "bugs": {
+    "url": "https://github.com/agikits/agentkit-cli/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "agentkit",
+    "chatbot",
+    "cli",
+    "mcp",
+    "model-context-protocol"
+  ],
+  "bin": {
+    "agentkit": "./dist/cli/index.js",
+    "agentkit-mcp": "./dist/mcp/stdio.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/sdk/index.d.ts",
+      "import": "./dist/sdk/index.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp/index.d.ts",
+      "import": "./dist/mcp/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "SECURITY.md",
+    "distribution",
+    "skills/agentkit",
+    "skills/agentkit-knowledge",
+    "skills/agentkit-conversations",
+    "skills/agentkit-channels",
+    "MIGRATION.md",
+    "contracts",
+    "skills/agentkit-widgets/",
+    "skills/agentkit-backstage/"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "tsc --noEmit -p tsconfig.test.json && node scripts/contracts.mjs",
+    "test": "npm run build && vitest run",
+    "prepare": "npm run build",
+    "contracts:generate": "node scripts/contracts.mjs --write",
+    "contracts:check": "node scripts/contracts.mjs",
+    "contracts:live": "node scripts/contracts.mjs --live",
+    "verify:package": "npm run build && node scripts/verify-package.mjs",
+    "verify:export": "node scripts/verify-export.mjs",
+    "export:private": "node scripts/export-private.mjs",
+    "smoke:live": "npm run build && node scripts/smoke-live.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.3.1",
+    "commander": "^14.0.2",
+    "zod": "4.6.6"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.3.1",
+    "@types/node": "^24.10.1",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.15"
+  },
+  "sideEffects": false,
+  "mcpName": "io.github.agikits/agentkit"
+}

@@ -1,0 +1,410 @@
+[
+  {
+    "operationId": "getHealth",
+    "method": "GET",
+    "path": "/health",
+    "sdk": "health",
+    "cli": "health"
+  },
+  {
+    "operationId": "listAgents",
+    "method": "GET",
+    "path": "/agents",
+    "sdk": "listAgents",
+    "cli": "agents list"
+  },
+  {
+    "operationId": "createAgent",
+    "method": "POST",
+    "path": "/agents",
+    "sdk": "createAgent",
+    "cli": "agents create"
+  },
+  {
+    "operationId": "getAgent",
+    "method": "GET",
+    "path": "/agents/{agentId}",
+    "sdk": "getAgent",
+    "cli": "agents info"
+  },
+  {
+    "operationId": "updateAgent",
+    "method": "PATCH",
+    "path": "/agents/{agentId}",
+    "sdk": "updateAgent",
+    "cli": "agents update"
+  },
+  {
+    "operationId": "deleteAgent",
+    "method": "DELETE",
+    "path": "/agents/{agentId}",
+    "sdk": "deleteAgent",
+    "cli": "agents delete"
+  },
+  {
+    "operationId": "chatWithAgent",
+    "method": "POST",
+    "path": "/agents/{agentId}/chat",
+    "sdk": "chat",
+    "cli": "chat"
+  },
+  {
+    "operationId": "listConversations",
+    "method": "GET",
+    "path": "/agents/{agentId}/conversations",
+    "sdk": "listConversations",
+    "cli": "conversations list"
+  },
+  {
+    "operationId": "exportConversations",
+    "method": "GET",
+    "path": "/agents/{agentId}/conversations/export",
+    "sdk": "exportConversations",
+    "cli": "conversations export"
+  },
+  {
+    "operationId": "getConversation",
+    "method": "GET",
+    "path": "/agents/{agentId}/conversations/{conversationId}",
+    "sdk": "getConversation",
+    "cli": "conversations get"
+  },
+  {
+    "operationId": "listConversationMessages",
+    "method": "GET",
+    "path": "/agents/{agentId}/conversations/{conversationId}/messages",
+    "sdk": "listMessages",
+    "cli": "conversations messages"
+  },
+  {
+    "operationId": "updateMessageFeedback",
+    "method": "PATCH",
+    "path": "/agents/{agentId}/conversations/{conversationId}/messages/{messageId}/feedback",
+    "sdk": "setFeedback",
+    "cli": "conversations feedback"
+  },
+  {
+    "operationId": "retryConversation",
+    "method": "POST",
+    "path": "/agents/{agentId}/conversations/{conversationId}/retry",
+    "sdk": "retry",
+    "cli": "conversations retry"
+  },
+  {
+    "operationId": "submitToolResult",
+    "method": "POST",
+    "path": "/agents/{agentId}/conversations/{conversationId}/tool-result",
+    "sdk": "submitToolResult",
+    "cli": "conversations tool-result"
+  },
+  {
+    "operationId": "listUserConversations",
+    "method": "GET",
+    "path": "/agents/{agentId}/users/{userId}/conversations",
+    "sdk": "listUserConversations",
+    "cli": "conversations list --user"
+  },
+  {
+    "operationId": "listSources",
+    "method": "GET",
+    "path": "/agents/{agentId}/sources",
+    "sdk": "listSources",
+    "cli": "sources list"
+  },
+  {
+    "operationId": "createTextSource",
+    "method": "POST",
+    "path": "/agents/{agentId}/sources/text",
+    "sdk": "addTextSource",
+    "cli": "sources add-text"
+  },
+  {
+    "operationId": "createQnaSource",
+    "method": "POST",
+    "path": "/agents/{agentId}/sources/qna",
+    "sdk": "addQnaSource",
+    "cli": "sources add-qna"
+  },
+  {
+    "operationId": "createUrlSource",
+    "method": "POST",
+    "path": "/agents/{agentId}/sources/url",
+    "sdk": "addUrlSource",
+    "cli": "sources add-url"
+  },
+  {
+    "operationId": "createFileUploadUrls",
+    "method": "POST",
+    "path": "/agents/{agentId}/sources/file/upload-url",
+    "sdk": "createFileUploadUrls",
+    "cli": "sources file-upload-urls"
+  },
+  {
+    "operationId": "registerFileSources",
+    "method": "POST",
+    "path": "/agents/{agentId}/sources/file",
+    "sdk": "registerFileSources",
+    "cli": "sources register-files"
+  },
+  {
+    "operationId": "deleteSource",
+    "method": "DELETE",
+    "path": "/agents/{agentId}/sources/{documentId}",
+    "sdk": "deleteSource",
+    "cli": "sources delete"
+  },
+  {
+    "operationId": "listContacts",
+    "method": "GET",
+    "path": "/agents/{agentId}/contacts",
+    "sdk": "listContacts",
+    "cli": "contacts list"
+  },
+  {
+    "operationId": "upsertContact",
+    "method": "POST",
+    "path": "/agents/{agentId}/contacts",
+    "sdk": "createContact",
+    "cli": "contacts upsert"
+  },
+  {
+    "operationId": "importContacts",
+    "method": "POST",
+    "path": "/agents/{agentId}/contacts/import",
+    "sdk": "importContacts",
+    "cli": "contacts import"
+  },
+  {
+    "operationId": "listLeads",
+    "method": "GET",
+    "path": "/agents/{agentId}/leads",
+    "sdk": "listLeads",
+    "cli": "leads"
+  },
+  {
+    "operationId": "getAiSettings",
+    "method": "GET",
+    "path": "/agents/{agentId}/settings/ai",
+    "sdk": "getAiSettings",
+    "cli": "settings ai"
+  },
+  {
+    "operationId": "updateAiSettings",
+    "method": "PATCH",
+    "path": "/agents/{agentId}/settings/ai",
+    "sdk": "updateAiSettings",
+    "cli": "settings model / instructions"
+  },
+  {
+    "operationId": "getDesignSettings",
+    "method": "GET",
+    "path": "/agents/{agentId}/settings/design",
+    "sdk": "getDesign",
+    "cli": "settings design"
+  },
+  {
+    "operationId": "updateDesignSettings",
+    "method": "PATCH",
+    "path": "/agents/{agentId}/settings/design",
+    "sdk": "updateDesign",
+    "cli": "settings design"
+  },
+  {
+    "operationId": "getSecuritySettings",
+    "method": "GET",
+    "path": "/agents/{agentId}/settings/security",
+    "sdk": "getSecurity",
+    "cli": "settings security"
+  },
+  {
+    "operationId": "updateSecuritySettings",
+    "method": "PATCH",
+    "path": "/agents/{agentId}/settings/security",
+    "sdk": "updateSecurity",
+    "cli": "settings security"
+  },
+  {
+    "operationId": "getNotificationSettings",
+    "method": "GET",
+    "path": "/agents/{agentId}/settings/notifications",
+    "sdk": "getNotifications",
+    "cli": "settings notifications"
+  },
+  {
+    "operationId": "updateNotificationSettings",
+    "method": "PATCH",
+    "path": "/agents/{agentId}/settings/notifications",
+    "sdk": "updateNotifications",
+    "cli": "settings notifications"
+  },
+  {
+    "operationId": "getTrainingSettings",
+    "method": "GET",
+    "path": "/agents/{agentId}/settings/training",
+    "sdk": "getTraining",
+    "cli": "settings training"
+  },
+  {
+    "operationId": "updateTrainingSettings",
+    "method": "PATCH",
+    "path": "/agents/{agentId}/settings/training",
+    "sdk": "updateTraining",
+    "cli": "settings training"
+  },
+  {
+    "operationId": "getTrainingStatus",
+    "method": "GET",
+    "path": "/agents/{agentId}/train",
+    "sdk": "trainStatus",
+    "cli": "train --status"
+  },
+  {
+    "operationId": "startTraining",
+    "method": "POST",
+    "path": "/agents/{agentId}/train",
+    "sdk": "train",
+    "cli": "train"
+  },
+  {
+    "operationId": "getInstagramChannel",
+    "method": "GET",
+    "path": "/agents/{agentId}/channels/instagram",
+    "sdk": "getInstagram",
+    "cli": "instagram status"
+  },
+  {
+    "operationId": "getInstagramAutomation",
+    "method": "GET",
+    "path": "/agents/{agentId}/channels/instagram/automations/{key}",
+    "sdk": "getInstagramAutomation",
+    "cli": "instagram automation"
+  },
+  {
+    "operationId": "updateInstagramAutomation",
+    "method": "PATCH",
+    "path": "/agents/{agentId}/channels/instagram/automations/{key}",
+    "sdk": "updateInstagramAutomation",
+    "cli": "instagram automation"
+  },
+  {
+    "operationId": "listInstagramAutomationInstances",
+    "method": "GET",
+    "path": "/agents/{agentId}/channels/instagram/automations/{key}/instances",
+    "sdk": "listInstagramAutomationInstances",
+    "cli": "instagram instances"
+  },
+  {
+    "operationId": "createInstagramAutomationInstance",
+    "method": "POST",
+    "path": "/agents/{agentId}/channels/instagram/automations/{key}/instances",
+    "sdk": "createInstagramAutomationInstance",
+    "cli": "instagram instance-create"
+  },
+  {
+    "operationId": "getInstagramAutomationInstance",
+    "method": "GET",
+    "path": "/agents/{agentId}/channels/instagram/automations/{key}/instances/{id}",
+    "sdk": "getInstagramAutomationInstance",
+    "cli": "instagram instance"
+  },
+  {
+    "operationId": "updateInstagramAutomationInstance",
+    "method": "PATCH",
+    "path": "/agents/{agentId}/channels/instagram/automations/{key}/instances/{id}",
+    "sdk": "updateInstagramAutomationInstance",
+    "cli": "instagram instance-update"
+  },
+  {
+    "operationId": "getInstagramConversationStarters",
+    "method": "GET",
+    "path": "/agents/{agentId}/channels/instagram/conversation-starters",
+    "sdk": "getConversationStarters",
+    "cli": "instagram starters"
+  },
+  {
+    "operationId": "updateInstagramConversationStarters",
+    "method": "PATCH",
+    "path": "/agents/{agentId}/channels/instagram/conversation-starters",
+    "sdk": "updateConversationStarters",
+    "cli": "instagram starters"
+  },
+  {
+    "operationId": "getInstagramMenu",
+    "method": "GET",
+    "path": "/agents/{agentId}/channels/instagram/menu",
+    "sdk": "getInstagramMenu",
+    "cli": "instagram menu"
+  },
+  {
+    "operationId": "updateInstagramMenu",
+    "method": "PATCH",
+    "path": "/agents/{agentId}/channels/instagram/menu",
+    "sdk": "updateInstagramMenu",
+    "cli": "instagram menu"
+  },
+  {
+    "operationId": "refreshInstagramPermissions",
+    "method": "POST",
+    "path": "/agents/{agentId}/channels/instagram/permissions/refresh",
+    "sdk": "refreshInstagramPermissions",
+    "cli": "instagram refresh-permissions"
+  },
+  { "operationId": "listManagementChannels", "method": "GET", "path": "/agents/{agentId}/channels", "sdk": "listManagementChannels", "cli": "channels list" },
+  { "operationId": "getManagementChannel", "method": "GET", "path": "/agents/{agentId}/channels/{channel}/config", "sdk": "getManagementChannel", "cli": "channels list <channel>" },
+  { "operationId": "updateManagementChannelOverride", "method": "PATCH", "path": "/agents/{agentId}/channels/{channel}/config", "sdk": "updateManagementChannelOverride", "cli": "channels configure" },
+  { "operationId": "updateWebPresentation", "method": "PATCH", "path": "/agents/{agentId}/channels/web/presentation", "sdk": "updateWebPresentation", "cli": "channels web-presentation" },
+  { "operationId": "getCenterStage", "method": "GET", "path": "/agents/{agentId}/channels/center-stage", "sdk": "getCenterStage", "cli": "channels center-stage" },
+  { "operationId": "updateCenterStage", "method": "PATCH", "path": "/agents/{agentId}/channels/center-stage", "sdk": "updateCenterStage", "cli": "channels center-stage --file" },
+  { "operationId": "listCustomApiActions", "method": "GET", "path": "/agents/{agentId}/actions", "sdk": "listCustomApiActions", "cli": "actions list" },
+  { "operationId": "createCustomApiAction", "method": "POST", "path": "/agents/{agentId}/actions", "sdk": "createCustomApiAction", "cli": "actions create" },
+  { "operationId": "getCustomApiAction", "method": "GET", "path": "/agents/{agentId}/actions/{actionId}", "sdk": "getCustomApiAction", "cli": "actions get" },
+  { "operationId": "updateCustomApiAction", "method": "PATCH", "path": "/agents/{agentId}/actions/{actionId}", "sdk": "updateCustomApiAction", "cli": "actions update" },
+  { "operationId": "deleteCustomApiAction", "method": "DELETE", "path": "/agents/{agentId}/actions/{actionId}", "sdk": "deleteCustomApiAction", "cli": "actions delete --yes" },
+  { "operationId": "setCustomApiActionStatus", "method": "PATCH", "path": "/agents/{agentId}/actions/{actionId}/status", "sdk": "setCustomApiActionStatus", "cli": "actions enable|disable" },
+  { "operationId": "listAgentSecrets", "method": "GET", "path": "/agents/{agentId}/secrets", "sdk": "listAgentSecrets", "cli": "secrets list" },
+  { "operationId": "setAgentSecret", "method": "PUT", "path": "/agents/{agentId}/secrets/{name}", "sdk": "setAgentSecret", "cli": "secrets set" },
+  { "operationId": "deleteAgentSecret", "method": "DELETE", "path": "/agents/{agentId}/secrets/{name}", "sdk": "deleteAgentSecret", "cli": "secrets delete --yes" },
+  { "operationId": "listWidgets", "method": "GET", "path": "/agents/{agentId}/widgets", "sdk": "listWidgets", "cli": "widgets list" },
+  { "operationId": "createWidget", "method": "POST", "path": "/agents/{agentId}/widgets", "sdk": "createWidget", "cli": "widgets create" },
+  { "operationId": "importWidget", "method": "POST", "path": "/agents/{agentId}/widgets/import", "sdk": "importWidget", "cli": "widgets import" },
+  { "operationId": "getWidget", "method": "GET", "path": "/agents/{agentId}/widgets/{widgetId}", "sdk": "getWidget", "cli": "widgets get" },
+  { "operationId": "saveWidgetDraft", "method": "PATCH", "path": "/agents/{agentId}/widgets/{widgetId}", "sdk": "saveWidgetDraft", "cli": "widgets save" },
+  { "operationId": "deleteWidget", "method": "DELETE", "path": "/agents/{agentId}/widgets/{widgetId}", "sdk": "deleteWidget", "cli": "widgets delete --yes" },
+  { "operationId": "setWidgetStatus", "method": "PATCH", "path": "/agents/{agentId}/widgets/{widgetId}/status", "sdk": "setWidgetStatus", "cli": "widgets status" },
+  { "operationId": "publishWidget", "method": "POST", "path": "/agents/{agentId}/widgets/{widgetId}/publish", "sdk": "publishWidget", "cli": "widgets publish --yes" },
+  { "operationId": "listWidgetVersions", "method": "GET", "path": "/agents/{agentId}/widgets/{widgetId}/versions", "sdk": "listWidgetVersions", "cli": "widgets versions" },
+  { "operationId": "getWidgetVersion", "method": "GET", "path": "/agents/{agentId}/widgets/{widgetId}/versions/{versionId}", "sdk": "getWidgetVersion", "cli": "widgets versions <versionId>" },
+  { "operationId": "duplicateWidget", "method": "POST", "path": "/agents/{agentId}/widgets/{widgetId}/duplicate", "sdk": "duplicateWidget", "cli": "widgets duplicate" },
+  { "operationId": "exportWidget", "method": "GET", "path": "/agents/{agentId}/widgets/{widgetId}/export", "sdk": "exportWidget", "cli": "widgets export" },
+  { "operationId": "getBackstageOverview", "method": "GET", "path": "/agents/{agentId}/backstage/overview", "sdk": "getBackstageOverview", "cli": "backstage overview" },
+  { "operationId": "getBackstageRun", "method": "GET", "path": "/agents/{agentId}/backstage/runs/{runId}", "sdk": null, "cli": null },
+  { "operationId": "cancelBackstageRun", "method": "DELETE", "path": "/agents/{agentId}/backstage/runs/{runId}", "sdk": null, "cli": null },
+  { "operationId": "listBackstageSessions", "method": "GET", "path": "/agents/{agentId}/backstage/sessions", "sdk": "listBackstageSessions", "cli": "backstage sessions" },
+  { "operationId": "getBackstageSession", "method": "GET", "path": "/agents/{agentId}/backstage/sessions/{sessionId}", "sdk": "getBackstageSession", "cli": "backstage session" },
+  { "operationId": "deleteBackstageSession", "method": "DELETE", "path": "/agents/{agentId}/backstage/sessions/{sessionId}", "sdk": "deleteBackstageSession", "cli": "backstage delete-session --yes" },
+  { "operationId": "getBackstageChange", "method": "GET", "path": "/agents/{agentId}/backstage/changes/{changeId}", "sdk": "getBackstageChange", "cli": "backstage change" },
+  { "operationId": "decideBackstageChange", "method": "POST", "path": "/agents/{agentId}/backstage/changes/{changeId}", "sdk": "decideBackstageChange", "cli": "backstage decide" },
+  { "operationId": "chatWithBackstage", "method": "POST", "path": "/agents/{agentId}/backstage/chat", "sdk": "chatBackstage", "cli": "backstage chat" },
+  {"operationId": "listEmailThreads", "method": "GET", "path": "/agents/{agentId}/emails", "sdk": "listEmails", "cli": "emails list"},
+  {"operationId": "getEmailThread", "method": "GET", "path": "/agents/{agentId}/emails/{threadId}", "sdk": "getEmail", "cli": "emails get"},
+  {"operationId": "discardEmailThread", "method": "POST", "path": "/agents/{agentId}/emails/{threadId}/discard", "sdk": "discardEmail", "cli": "emails discard"},
+  {"operationId": "restoreEmailThread", "method": "POST", "path": "/agents/{agentId}/emails/{threadId}/restore", "sdk": "restoreEmail", "cli": "emails restore"},
+  {"operationId": "draftEmailThread", "method": "POST", "path": "/agents/{agentId}/emails/{threadId}/draft", "sdk": "draftEmail", "cli": "emails draft"},
+  {"operationId": "forwardEmailMessage", "method": "POST", "path": "/agents/{agentId}/emails/messages/{messageId}/forward", "sdk": "forwardEmail", "cli": "emails forward"},
+  {"operationId": "listEmailDrafts", "method": "GET", "path": "/agents/{agentId}/emails/drafts", "sdk": "listEmailDrafts", "cli": "emails drafts list"},
+  {"operationId": "getEmailDraft", "method": "GET", "path": "/agents/{agentId}/emails/drafts/{draftId}", "sdk": "getEmailDraft", "cli": "emails drafts get"},
+  {"operationId": "editEmailDraft", "method": "PATCH", "path": "/agents/{agentId}/emails/drafts/{draftId}", "sdk": "editEmailDraft", "cli": "emails drafts edit"},
+  {"operationId": "sendEmailDraft", "method": "POST", "path": "/agents/{agentId}/emails/drafts/{draftId}/send", "sdk": "sendEmailDraft", "cli": "emails send"},
+  {"operationId": "enableEmailChannel", "method": "POST", "path": "/agents/{agentId}/channels/email/enable", "sdk": "enableEmailChannel", "cli": "channels enable"},
+  {"operationId": "disableEmailChannel", "method": "POST", "path": "/agents/{agentId}/channels/email/disable", "sdk": "disableEmailChannel", "cli": "channels disable"},
+  {"operationId": "getEmailSettings", "method": "GET", "path": "/agents/{agentId}/email/settings", "sdk": "getEmailSettings", "cli": "email settings"},
+  {"operationId": "updateEmailSettings", "method": "PATCH", "path": "/agents/{agentId}/email/settings", "sdk": "updateEmailSettings", "cli": "email settings"},
+  {"operationId": "getEmailReplyAddress", "method": "GET", "path": "/agents/{agentId}/email/reply-address", "sdk": "getEmailReplyAddress", "cli": "email reply-address status"},
+  {"operationId": "addEmailReplyAddress", "method": "PUT", "path": "/agents/{agentId}/email/reply-address", "sdk": "addEmailReplyAddress", "cli": "email reply-address add"},
+  {"operationId": "removeEmailReplyAddress", "method": "DELETE", "path": "/agents/{agentId}/email/reply-address", "sdk": "removeEmailReplyAddress", "cli": "email reply-address remove"},
+  {"operationId": "verifyEmailReplyAddress", "method": "POST", "path": "/agents/{agentId}/email/reply-address/verify", "sdk": "verifyEmailReplyAddress", "cli": "email reply-address verify"},
+  {"operationId": "listEmailAutomatedSenders", "method": "GET", "path": "/agents/{agentId}/email/automated-senders", "sdk": "listEmailAutomatedSenders", "cli": "email automated-senders list"},
+  {"operationId": "addEmailAutomatedSender", "method": "POST", "path": "/agents/{agentId}/email/automated-senders", "sdk": "addEmailAutomatedSender", "cli": "email automated-senders add"},
+  {"operationId": "removeEmailAutomatedSender", "method": "DELETE", "path": "/agents/{agentId}/email/automated-senders", "sdk": "removeEmailAutomatedSender", "cli": "email automated-senders remove"},
+  {"operationId":"getEmailMessage","method":"GET","path":"/agents/{agentId}/emails/messages/{messageId}","sdk":"getEmailMessage","cli":null}
+]

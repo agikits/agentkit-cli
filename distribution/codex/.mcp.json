@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "agentkit": {
+      "command": "agentkit-mcp",
+      "args": []
+    }
+  }
+}

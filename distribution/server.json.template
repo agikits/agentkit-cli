@@ -1,0 +1,27 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.REPLACE_WITH_VERIFIED_OWNER/agentkit",
+  "description": "Manage Agentkit agents and knowledge through its API using a local MCP process.",
+  "repository": {
+    "url": "https://github.com/REPLACE_WITH_VERIFIED_OWNER/REPLACE_WITH_CREATED_REPOSITORY",
+    "source": "github"
+  },
+  "version": "0.2.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "REPLACE_WITH_PUBLISHED_PACKAGE_NAME",
+      "version": "0.2.0",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        {
+          "name": "AGENTKIT_API_KEY",
+          "description": "A workspace API key for the Agentkit API.",
+          "format": "string",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
