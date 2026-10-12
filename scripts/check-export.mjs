@@ -40,18 +40,18 @@ export async function auditExport(root, { paths = [''], forbiddenValues = [] } =
   }
   for (const relative of paths) {
     assertRelative(relative);
-    const parts = relative.split(path.sep).filter(Boolean);
+    const parts = relative.split(/[\\/]/).filter(Boolean);
     // An allowlisted child must not traverse an unchecked symlink parent.
     for (let i = 1; i < parts.length; i++) {
       const prefix = path.join(...parts.slice(0, i));
       if ((await lstat(path.join(root, prefix))).isSymbolicLink()) throw new Error(`Unexpected symlink: ${prefix}`);
     }
-    await walk(relative);
+    await walk(parts.length ? path.join(...parts) : '');
   }
 }
 
 function assertRelative(relative) {
-  if (path.isAbsolute(relative) || relative.split(path.sep).includes('..')) throw new Error('Export selection must stay under its root');
+  if (path.isAbsolute(relative) || path.win32.isAbsolute(relative) || relative.split(/[\\/]/).includes('..')) throw new Error('Export selection must stay under its root');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
