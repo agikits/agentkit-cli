@@ -29,7 +29,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '24'
-      - run: npm install --global npm@11
+      - run: npm install --global npm@11.21
       - run: npm ci
       - run: npm run check
       - run: npm test
@@ -52,7 +52,7 @@ jobs:
         with:
           node-version: '24'
           registry-url: https://registry.npmjs.org
-      - run: npm install --global npm@11
+      - run: npm install --global npm@11.21
       - name: Require matching public package, repository and version tag
         env:
           RELEASE_REF: ${{ github.ref }}
@@ -71,6 +71,8 @@ jobs:
           JS
       - run: npm ci
       - run: npm run build
-      - run: npm publish --ignore-scripts --access public --tag "$DIST_TAG"
+      # The npm trusted publisher grants stage-publish only: a maintainer approves
+      # the staged version on npmjs.com (2FA) before it goes live.
+      - run: npm stage publish --ignore-scripts --access public --tag "$DIST_TAG"
         env:
           DIST_TAG: ${{ inputs.dist_tag }}
