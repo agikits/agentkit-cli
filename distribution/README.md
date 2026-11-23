@@ -31,7 +31,8 @@ The package owner must authenticate for initial package setup if npm does not
 allow configuring trusted publishing before the first version. Never add a
 publishing token to this repository. After package setup, dispatch `publish`
 against `v<package-version>`. The workflow checks identity and publishes with the
-`beta` dist-tag. Keep beta until real-client checks pass. Public repositories and
+`dist_tag` input (`latest` by default; choose `beta` for a version that has not
+passed real-client checks). Public repositories and
 packages receive OIDC provenance automatically.
 
 ## Local plugins
