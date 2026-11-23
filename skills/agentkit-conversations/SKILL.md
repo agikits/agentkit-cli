@@ -5,10 +5,10 @@ description: Inspect Agentkit API/widget conversations, test replies, give feedb
 
 # Conversations
 
-Use `conversations list`, `get`, or `export` with `--json`. The default source is
-`api_v2`; `--source playground` selects API tests, `--source widget` selects
-widget chats and `--source all` includes those three sources. It does not include
-Instagram, Center Stage, or every channel.
+Use `conversations list`, `get`, or `export` with `--json`. `list` and `export`
+default to `api_v2`; `get` defaults to `all`. `--source playground` selects API
+tests, `--source widget` widget chats, `--source instagram` Instagram DMs, and
+`--source all` all four. Center Stage and email threads are not included.
 Export pages contain at most 20 conversations. Follow cursors and keep personal
 content out of shared reports and fixtures.
 

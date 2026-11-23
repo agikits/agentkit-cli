@@ -70,7 +70,8 @@ program
   .option("--json", "Machine-readable JSON output")
   .option("--timeout <ms>", "Total request/stream deadline in milliseconds", positiveInteger, 60000)
   .exitOverride()
-  .configureOutput({ outputError: () => {} })
+  // Errors are printed as JSON by the catch handler; help shown for a missing subcommand goes to stdout like --help.
+  .configureOutput({ outputError: () => {}, writeErr: str => process.stdout.write(str) })
   .hook("preAction", (_root, command) => {
     if (program.opts<GlobalOpts>().json) command.setOptionValue("json", true);
   });
@@ -198,7 +199,7 @@ program
       ...(key ? { key, keyUrl: url || process.env.AGENTKIT_URL || existing.url || "https://agentkit.ai" } : {}),
       ...(url ? { url } : {}),
     };
-    if (!next.key && !next.url) {
+    if (!key && !url) {
       throw new Error("Nothing to save. Pipe an API key into agentkit init --with-token, for example: pbpaste | agentkit init --with-token");
     }
     await writeConfig(next);
@@ -337,7 +338,7 @@ program
         source: opts.source,
       });
       if (opts.json) return out(conv);
-      console.log(`# ${conv.title} (${conv.id})`);
+      console.log(`# ${cell(conv.title)} (${conv.id})`);
       for (const m of conv.messages) {
         const text = m.parts.map((p) => p.text).join("");
         console.log(`\n[${m.role} ${m.id}] ${text}`);
@@ -479,7 +480,7 @@ program
     const list = await client.listAgents({ limit: opts.limit, cursor: opts.cursor });
     if (opts.json) return out(list);
     for (const a of list.data) {
-      console.log(`${a.id}\t${aiValue(a.settings, "model") ?? "-"}\t${a.name}`);
+      console.log([a.id, aiValue(a.settings, "model") ?? "-", a.name].map(cell).join("\t"));
     }
     printCursorFooter(list.pagination);
   });
@@ -538,7 +539,7 @@ program
     const { agentId, client } = await projectClient(project);
     const agent = await client.getAgent(agentId);
     if (opts.json) return out(agent);
-    console.log(`# ${agent.name} (${agent.id})`);
+    console.log(`# ${cell(agent.name)} (${agent.id})`);
     console.log(`url:   ${agent.url ?? "-"}`);
     console.log(`model: ${aiValue(agent.settings, "model") ?? "-"}`);
     console.log(`preset: ${aiValue(agent.settings, "instructionsPreset") ?? "-"}`);
@@ -911,7 +912,7 @@ program
       if (opts.json) return out(list);
       for (const c of list.data) {
         console.log(
-          `${c.externalId}\t${c.name ?? "-"}\t${c.email ?? "-"}\t${c.phone ?? "-"}`,
+          [c.externalId, c.name ?? "-", c.email ?? "-", c.phone ?? "-"].map(cell).join("\t"),
         );
       }
       printCursorFooter(list.pagination);
@@ -968,7 +969,7 @@ program.command("leads <project>").description("List captured leads")
     const { agentId, client } = await projectClient(project);
     const list = await client.listLeads(agentId, opts);
     if (opts.json) return out(list);
-    for (const lead of list.data) console.log(`${lead.id}\t${lead.name ?? "-"}\t${lead.email ?? "-"}\t${lead.phone ?? "-"}`);
+    for (const lead of list.data) console.log([lead.id, lead.name ?? "-", lead.email ?? "-", lead.phone ?? "-"].map(cell).join("\t"));
     printCursorFooter(list.pagination);
   });
 
@@ -1168,7 +1169,7 @@ program
       for (const item of menu.draft_items ?? []) {
         const action =
           item.action.kind === "web_url" ? `→ ${item.action.url}` : `↩ ${item.action.reply}`;
-        console.log(`  ${item.title.padEnd(30)} ${action}`);
+        console.log(`  ${cell(item.title).padEnd(30)} ${action}`);
       }
     },
   );
@@ -1406,7 +1407,7 @@ function parseRating(rating: string): Feedback {
 }
 
 registerCommands(program);
-const copies = new Command().configureHelp({ showGlobalOptions: true }).exitOverride().configureOutput({ outputError: () => {} });
+const copies = new Command().configureHelp({ showGlobalOptions: true }).exitOverride().configureOutput({ outputError: () => {}, writeErr: str => process.stdout.write(str) });
 registerCommands(copies);
 const groups: Record<string, Record<string, string>> = {
   agents: { list: "agents", create: "create-agent", update: "update-agent", delete: "delete-agent", info: "info" },
@@ -1436,7 +1437,6 @@ const groupDescriptions: Record<string, string> = {
 };
 for (const [name, commands] of Object.entries(groups)) {
   const group = program.commands.find(c => c.name() === name) ?? program.command(name);
-  group.summary(`${groupDescriptions[name]} (${Object.keys(commands).join(", ")})`);
   if (!group.description()) group.description(groupDescriptions[name]!);
   // Legacy commands also act as groups, so Commander can consume shared
   // options on the parent. Forward explicit values and apply the child's
@@ -1470,6 +1470,10 @@ program.command("mcp").description("Run MCP over stdio, read-only by default")
     await runStdio({ ...options, url: globalOpts().url });
   });
 registerEmailCommands(program, managementProjectClient, emailReadProjectClient, out);
+// Summaries list subcommands, including those added by registerEmailCommands.
+for (const command of program.commands) {
+  if (command.commands.length) command.summary(`${groupDescriptions[command.name()] ?? command.description()} (${command.commands.map(c => c.name()).join(", ")})`);
+}
 program.parseAsync().catch((error: unknown) => {
   // Commander reports group help without a subcommand as an error; showing help is a successful outcome.
   if (error instanceof CommanderError && (error.exitCode === 0 || error.code === "commander.help")) return;

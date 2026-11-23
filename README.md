@@ -98,8 +98,8 @@ stderr. JSON-only commands such as health, projects and design always emit JSON.
 
 Lists are paginated. Pass `pagination.cursor` back as `--cursor` while `hasMore`
 is true. Page limits are 1-100; conversation export is 1-20. `source=all` includes
-API v2, API Playground and widget chats, not Instagram, Center Stage or every
-channel. Widget reads are supported by list/detail/export; message listing, per-user queries,
+API v2, API Playground, widget and Instagram chats, not Center Stage or email;
+`conversations get` defaults to `all`. Widget reads are supported by list/detail/export; message listing, per-user queries,
 feedback, retry and continuation remain API-v2-only.
 
 Email reads use the account API key. `emails <project>` defaults to `--status all`,
@@ -174,7 +174,7 @@ Both support the 2026-07-28 protocol and legacy initialization. Stateless HTTP
 uses a fresh server for each request. It needs no separate persistent process or
 session store. Public remote connectors still need a hosted HTTPS endpoint.
 
-After installing the reviewed tarball, configure your MCP client with this entry.
+After `npm install -g @agikits/agentkit`, configure your MCP client with this entry.
 `agentkit mcp` is an equivalent command for package launchers that select the
 default executable.
 Use `agentkit init --with-token` to save a workspace key on stdin first.
