@@ -50,6 +50,7 @@ describe("installed-style executable", () => {
       const result = await bin(args);
       expect(result.code, result.stderr).toBe(0);
       expect(result.stdout + result.stderr).not.toContain("(outputHelp)");
+      expect(result.stdout).toContain("Usage:");
     }
     const help = (await bin(["--help"])).stdout;
     expect(help).toMatch(/settings\s+Read and change AI.*\(ai, model, instructions/);

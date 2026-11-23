@@ -30,11 +30,10 @@ explicit `--json`. URL-source creation now returns `UrlSourceJob`, security rate
 limits require their full object, and REST types match the pinned API specification.
 Missing/nullable fields and model enums may require TypeScript caller changes.
 
-Version 0.2.0 uses the provisional public package identity `@agikits/agentkit`.
+Since 0.2.0 the package is published on npm as `@agikits/agentkit`.
 The executable remains `agentkit`; the added MCP executable is `agentkit-mcp`.
-Verify the local tarball before replacing an internal installation. Retain the
-prior package/version and alias registry for rollback. npm publication is a
-separate release step.
+Retain the prior package/version and alias registry for rollback when replacing
+an internal installation.
 
 Saved API keys now carry an origin binding like saved sessions. A legacy key is
 bound to the existing configured origin, or `https://agentkit.ai` when none was

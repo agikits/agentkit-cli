@@ -1,8 +1,8 @@
 # Release and distribution
 
-These files prepare a release. They are not evidence of npm publication, a public
-repository or marketplace approval. The provisional package identity is
-`@agikits/agentkit`. Verify ownership and package access before publishing.
+These files prepare a release. `@agikits/agentkit` is published on npm and the
+public repository is github.com/agikits/agentkit-cli; MCP Registry and marketplace
+listings are separate and not yet approved.
 
 ## Public repository export
 
@@ -37,8 +37,8 @@ packages receive OIDC provenance automatically.
 ## Local plugins
 
 `codex/` and `cursor/` each contain a plugin manifest and stdio MCP configuration.
-They use the installed `agentkit-mcp` executable. Install the reviewed tarball
-with `npm install --global /path/to/package.tgz`, run `agentkit init --with-token`
+They use the installed `agentkit-mcp` executable. Install the package
+with `npm install --global @agikits/agentkit`, run `agentkit init --with-token`
 with the workspace key on stdin, then
 restart the client so its PATH includes the global executable. Local configuration
 is read by the MCP process. Do not put a workspace key in either plugin file.
