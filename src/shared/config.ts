@@ -50,7 +50,7 @@ export async function writeConfig(config: Config): Promise<void> {
 }
 export async function resolveConfig(
   options: { url?: string; key?: string } = {},
-  { requireKey = true, allowSession = false, ignoreCredentials = false }: { requireKey?: boolean; allowSession?: boolean; ignoreCredentials?: boolean } = {},
+  { requireKey = true, allowSession = false, ignoreCredentials = false }: { requireKey?: boolean; allowSession?: boolean | "optional"; ignoreCredentials?: boolean } = {},
 ): Promise<ResolvedConfig> {
   const saved = await readConfig();
   const url = validateBaseUrl(options.url || process.env.AGENTKIT_URL || saved.url || DEFAULT_BASE_URL);
@@ -64,7 +64,7 @@ export async function resolveConfig(
   const key = rememberKey(explicitKey || (wrongSavedKeyOrigin ? "" : saved.key) || "");
   if (requireKey && !key) throw new Error("Missing Agentkit API key. Set AGENTKIT_API_KEY or run agentkit init --with-token with a token on stdin.");
   if (allowSession) {
-    if (!key && !sessionToken) throw new Error("Missing credentials. Set AGENTKIT_API_KEY or AGENTKIT_SESSION_TOKEN.");
+    if (allowSession === true && !key && !sessionToken) throw new Error("Missing credentials. Set AGENTKIT_API_KEY or AGENTKIT_SESSION_TOKEN.");
     return { url, key, ...(sessionToken ? { sessionToken } : {}) };
   }
   return { url, key };

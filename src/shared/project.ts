@@ -2,7 +2,7 @@ import path from "node:path";
 import { configDir, isRecord, readJsonFile, writeJsonFile } from "./storage.js";
 
 export type ProjectEntry = { agentId: string };
-const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const AGENT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ALIAS = /^[a-zA-Z][a-zA-Z0-9_-]*$/;
 export function registryPath(): string { return path.join(configDir(), "projects.json"); }
 function parseRegistry(raw: unknown): Record<string, ProjectEntry> {
@@ -11,7 +11,7 @@ function parseRegistry(raw: unknown): Record<string, ProjectEntry> {
   const result: Record<string, ProjectEntry> = Object.create(null) as Record<string, ProjectEntry>;
   for (const [name, value] of Object.entries(raw.projects)) {
     if (!ALIAS.test(name) || ["__proto__", "constructor", "prototype"].includes(name) ||
-        !isRecord(value) || typeof value.agentId !== "string" || !ID.test(value.agentId) ||
+        !isRecord(value) || typeof value.agentId !== "string" || !AGENT_ID.test(value.agentId) ||
         Object.keys(value).some(k => k !== "agentId")) {
       throw new Error("Invalid alias registry; use named aliases with UUID agentId values and no endpoint overrides.");
     }
@@ -23,7 +23,7 @@ export async function listProjects(): Promise<string[]> {
   return Object.keys(parseRegistry(await readJsonFile(registryPath()))).sort();
 }
 export async function loadProject(name: string): Promise<ProjectEntry> {
-  if (ID.test(name)) return { agentId: name };
+  if (AGENT_ID.test(name)) return { agentId: name };
   const registry = parseRegistry(await readJsonFile(registryPath()));
   const entry = registry[name];
   if (!entry) throw new Error("Unknown agent alias. Use a UUID or register an alias with agentkit projects --add <alias> <agentId>.");
