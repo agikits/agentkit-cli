@@ -38,7 +38,7 @@ expire normally and are
 never refreshed by the CLI. Workspace API keys can read the inbox, edit reviewed drafts and send reviewed draft revisions.
 Other email writes require a user session. Draft approval uses the key identity in the send audit.
 All 75 pinned API paths and every component match the specification published at
-agentkit.ai, observed 2026-10-15, including workspace-key draft approval.
+agentkit.ai, observed 2026-11-23, including workspace-key draft approval and upload reservations.
 `contracts/provenance.json` records the compared product source and schema hashes.
 Authenticated runtime acceptance remains a separate release gate.
 Session, rollout and paid-plan requirements still apply.

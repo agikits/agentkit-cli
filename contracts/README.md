@@ -35,6 +35,10 @@ found the published specification matching the snapshot again. Its only change i
 that thread discard and restore accept account API keys alongside user sessions,
 which also shortens the session-only description on the other email writes.
 
+The 2026-11-23 observation, after product commit `76cec23a` (PR #813) deployed,
+adds an optional per-file `size` to upload-URL requests, reserved against the
+account upload budget, plus 429 on URL creation and 409 on repeat registration.
+
 `deploymentStatus: "schema-observed"` records the published specification, not
 successful authenticated calls. `authenticatedRuntimeAcceptance: "pending"`
 keeps that release gate explicit. The checksummed `deployed-openapi.json` now

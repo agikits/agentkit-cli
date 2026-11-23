@@ -381,6 +381,13 @@ describe("installed-style executable", () => {
       `/api/v2/agents/${AGENT}/channels/instagram/automations/story_leads/instances`,
     ]);
   });
+  it("declares upload sizes in file-name order", async () => {
+    const ok = await bin(["--key", "test-key", "--json", "sources", "file-upload-urls", AGENT, "--file-name", "a.pdf", "b.txt", "--size", "1024", "2048"]);
+    expect(ok.code, ok.stderr).toBe(0);
+    expect(JSON.parse(requests.at(-1)!.body)).toEqual({ files: [{ fileName: "a.pdf", size: 1024 }, { fileName: "b.txt", size: 2048 }] });
+    const mismatch = await bin(["--key", "test-key", "sources", "file-upload-urls", AGENT, "--file-name", "a.pdf", "b.txt", "--size", "1024"]);
+    expect(mismatch.code).toBe(1); expect(requests).toHaveLength(1);
+  });
   it("refuses protected management writes before making requests", async () => {
     expect((await bin(["--key", "test-key", "widgets", "delete", AGENT, AGENT])).code).toBe(1);
     expect((await bin(["--key", "test-key", "widgets", "publish", AGENT, AGENT, "--expected-updated-at", "2026-01-01T00:00:00Z"])).code).toBe(1);
