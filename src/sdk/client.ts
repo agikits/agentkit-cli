@@ -754,7 +754,7 @@ export class AgentkitClient {
 }
 
 /** True only for a decodable JWT whose exp has passed; opaque tokens are left to the server. */
-function jwtExpired(token: string, now = Date.now()): boolean {
+export function jwtExpired(token: string, now = Date.now()): boolean {
   const payload = token.split(".")[1];
   if (!payload) return false;
   try {

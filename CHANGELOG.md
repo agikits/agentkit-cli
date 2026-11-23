@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2
+
+- Add `agentkit mcp add`, `remove` and `status` for local MCP clients. Registrations reuse the CLI login, support read-only or explicitly write-enabled access, and keep a backup when editing client configuration.
+
 ## 0.2.1
 
 - MCP `conversations_get` and CLI `conversations get` search every source by default, so widget, Playground and Instagram chats no longer 404. Both accept `instagram` as a source.

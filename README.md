@@ -5,7 +5,7 @@ Node.js. The package exports an ESM SDK, the `agentkit` executable and the `agen
 executable. Node 22+ is required. The SDK import does not load Commander; the combined package installs
 Commander for the CLI.
 
-Version 0.2.1, MIT license, published on npm as `@agikits/agentkit`:
+Version 0.2.2, MIT license, published on npm as `@agikits/agentkit`:
 
 ```sh
 npm install -g @agikits/agentkit
@@ -166,6 +166,51 @@ no automatic retries. A timeout after a write does not prove that the write
 failed; read current state before resubmitting. URL-source creation returns a
 job ID and retrain flag, not a document ID. Security rate limits are objects with
 `maxMessages`, `windowSeconds` and `limitMessage`.
+
+## Connect an MCP client
+
+After you save your workspace key with `agentkit init --with-token`, register
+Agentkit with your coding agent. The local server reads the same login. You can
+register it before signing in, too.
+
+```sh
+agentkit mcp add                  # choose a detected client in an interactive terminal
+agentkit mcp add claude-code
+agentkit mcp add cursor --scope project --dry-run
+agentkit mcp add codex --agent <uuid-1> <uuid-2> --allow-writes
+agentkit mcp status --json
+agentkit mcp remove cursor --scope project
+```
+
+| Client | Default user registration | Other scopes |
+| --- | --- | --- |
+| Claude Code | `claude mcp add --scope user` | `project` for shared `.mcp.json`, `local` for a private project registration |
+| Codex | `[mcp_servers.agentkit]` in `~/.codex/config.toml` (honors `CODEX_HOME`) | |
+| Cursor | `mcpServers` in `~/.cursor/mcp.json` | `project` for `.cursor/mcp.json` |
+| VS Code | `code --add-mcp` for the default user profile | `project` for `servers` in `.vscode/mcp.json` |
+| Claude Desktop | `mcpServers` in the OS-specific `Claude/claude_desktop_config.json` | |
+| Windsurf stable editor | `mcpServers` in `~/.codeium/windsurf/mcp_config.json` | |
+
+Run project-scoped commands from the project root. On Windsurf, enable the
+`windsurf` source in `chat.mcp.discovery.enabled` to load the editor discovery
+file. Restart Claude Desktop after changing its configuration.
+
+Pass an explicit client in scripts. Use `--name <server-name>` on add, remove
+or status to select a different registration. Repeating an identical add makes
+no change. Replacing a different registration requires `--force`. Add and remove
+keep the previous file in a sibling `.bak` and support `--dry-run` and `--json`.
+
+Agentkit stores the absolute path to `agentkit-mcp` from your PATH when available.
+The client still needs Node.js to run that executable.
+Otherwise the client runs `npx -y -p @agikits/agentkit agentkit-mcp`, which needs
+npm on the client's PATH. The registration contains the launch command and flags.
+Your workspace key and session stay in the CLI credential store or environment.
+
+`status` checks local credentials and reads each detected client's configuration.
+It reports registration separately for each scope and masks unrecognized server
+arguments. It makes no API request. The stdio server needs a workspace API key
+even if the CLI has a management session. Hosted registration (`--remote`) is
+reserved for a future release.
 
 ## MCP
 

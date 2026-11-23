@@ -1,5 +1,6 @@
 /** Offline catalogue. New management operations require the matching product API revision. */
 export const CAPABILITIES = [
+  { area: "mcp", support: "cli", commands: ["mcp", "mcp add", "mcp remove", "mcp status"], note: "Local stdio MCP and client registration. Uses the CLI workspace key. Reads are enabled by default." },
   { area: "agents", support: "cli", commands: ["agents list", "agents info", "agents create", "agents update", "agents delete", "settings ai"], note: "Existing account-key API; account-wide authority." },
   { area: "knowledge", support: "cli", commands: ["sources list", "sources add-text", "sources add-qna", "sources add-url", "sources file-upload-urls", "sources register-files", "train"], note: "Upload setup and registration are separate; transfer binary bytes using the returned signed storage URL. URL creation returns a job." },
   { area: "contacts", support: "cli", commands: ["contacts list", "contacts upsert", "contacts import", "leads"], note: "Import and lead reads use the existing API." },

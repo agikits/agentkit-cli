@@ -1,7 +1,9 @@
 #!/usr/bin/env node
+import { stripVTControlCharacters } from "node:util";
 import { readFile } from "node:fs/promises";
 
 import { Command, CommanderError, InvalidArgumentError } from "commander";
+import { registerMcpCommands } from "./mcp.js";
 import { registerEmailCommands } from "./email.js";
 
 import { CAPABILITIES } from "../shared/capabilities.js";
@@ -146,7 +148,7 @@ async function emailReadProjectClient(project: string): Promise<{ agentId: strin
 
 /** Strip terminal control sequences from untrusted text printed in tables. */
 function cell(value: unknown): string {
-  return String(value ?? "").replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, "").replace(/[\u0000-\u001f\u007f-\u009f]/g, " ");
+  return stripVTControlCharacters(String(value ?? "")).replace(/[\u0000-\u001f\u007f-\u009f]/g, " ");
 }
 
 function out(value: unknown): void {
@@ -1461,14 +1463,14 @@ const legacyNames = new Set(Object.values(groups).flatMap(commands => Object.val
 program.configureHelp({
   visibleCommands: command => command.commands.filter(child => !legacyNames.has(child.name()) || child.commands.length > 0),
 });
-program.command("mcp").description("Run MCP over stdio, read-only by default")
+const mcp = program.command("mcp").description("Connect MCP clients or run the read-only stdio server")
   .option("--allow-writes", "Expose text knowledge, instruction updates and agent creation (without --agent)")
   .option("--agent <uuid...>", "Restrict this connection to specified agent UUIDs")
   .action(async (options: { allowWrites?: boolean; agent?: string[] }) => {
-    if (globalOpts().key) throw new Error("MCP keys must come from saved config or AGENTKIT_API_KEY, not command arguments.");
     const { runStdio } = await import("../mcp/run-stdio.js");
     await runStdio({ ...options, url: globalOpts().url });
   });
+registerMcpCommands(mcp);
 registerEmailCommands(program, managementProjectClient, emailReadProjectClient, out);
 // Summaries list subcommands, including those added by registerEmailCommands.
 for (const command of program.commands) {
@@ -1478,7 +1480,7 @@ program.parseAsync().catch((error: unknown) => {
   // Commander reports group help without a subcommand as an error; showing help is a successful outcome.
   if (error instanceof CommanderError && (error.exitCode === 0 || error.code === "commander.help")) return;
   const code = error instanceof AgentkitError ? error.code : cancellation.signal.aborted ? "REQUEST_CANCELLED" : "CLI_ERROR";
-  const message = error instanceof Error ? error.message : "Command failed.";
+  const message = error instanceof Error ? cell(error.message) : "Command failed.";
   console.error(redact(JSON.stringify({ error: { code, message,
     ...(error instanceof AgentkitError ? { status: error.status, details: error.details, requestId: error.requestId } : {}),
   } })));
