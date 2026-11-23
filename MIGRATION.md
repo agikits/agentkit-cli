@@ -80,9 +80,11 @@ action allowlist.
 plain-text message bodies. Both support `--json` and account API keys. The grouped
 `emails list/get` and `emails drafts list/get` commands also support account keys.
 `email` retains setup/settings/reply routing subcommands, and `emails` retains
-review and delivery commands. Setup and writes require a user session. The
-pinned published contract applies; authenticated runtime acceptance remains
-pending.
+review and delivery commands. Draft edit and send accept a workspace key with the
+reviewed revision, and discard and restore accept a workspace key. Setup and
+other email writes require a user session. The
+published draft-approval schema matched the reviewed source on 2026-10-15;
+authenticated runtime acceptance remains pending.
 Read `emails get` before mutating a thread and `emails drafts get` before editing
 or sending. Discard takes the reviewed inbound/draft IDs and editedAt; restore,
 edit and send take the reviewed revision. A conflict requires a fresh read.

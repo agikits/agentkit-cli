@@ -33,13 +33,13 @@ separately from tested live behavior; tests may consume credits or message users
 
 ## Email
 
-1. For setup or writes, establish a user session and read `email settings <agent>` and `channels get <agent> email`. Session operations retain management eligibility, rollout and plan gates.
+1. For setup, establish a user session and read `email settings <agent>` and `channels get <agent> email`. Session operations retain management eligibility, rollout and plan gates.
 2. Enable with `channels enable <agent> email [--address local-part]`. First enable fixes the inbox address. Repeat enable reads/preserves it; another requested address conflicts.
 3. Read with an account API key or user session. Use `emails <agent> --status all --json` and `email <agent> <thread-id>` for headers, plain-text bodies and draft states, or `emails list <agent>` and `emails get <agent> <thread-id>`. Lists default to all partitions. Reuse `pagination.nextCursor` with the same filters. Detail supplies complete bodies, headers, discard reasons and reviewed IDs/revisions; reads do not mark mail read. Historical mail rejected before storage remains absent.
 4. For reply routing, use `email reply-address add`, read the delivered code from the inbox or destination mailbox, then `verify` and `status`. Add/status never return the challenge code.
 5. Patch only requested `email settings` flags. Signature files contain UTF-8 plain text; an empty file clears text. Use exact `email automated-senders` addresses for future mail that should reach review. Exceptions authorize review visibility, not sender authentication or actions.
-6. Discard with the reviewed inbound ID and pending draft ID/editedAt. Restore with the thread revision; restoration never generates or sends. Request a draft explicitly with `emails draft`, then read it with `emails drafts get`.
-7. Edit with `--body-file` and `--expected-revision`. Send approves that reviewed draft revision. Reload after a conflict. A send retry retains the same draft identity. Forward uses a stable UUID `--submission-id`; read detail after timeout and retain that identity on retry. Report delivered, already delivered, conflict and unresolved separately.
+6. Use an account API key or a session to discard with the reviewed inbound ID and pending draft ID/editedAt. Restore with the thread revision; restoration never generates or sends. Request a draft explicitly with `emails draft`, then read it with `emails drafts get`.
+7. Edit with `--body-file` and `--expected-revision` using a workspace key or user session. Send approves that reviewed draft revision and records the approving key or user. Reload after a conflict. A send retry retains the same draft identity. Forward uses a stable UUID `--submission-id`; read detail after timeout and retain that identity on retry. Report delivered, already delivered, conflict and unresolved separately.
 
 Use each operation's `--help` for required reviewed values. Disabling preserves
 history and does not delete the inbox. Report saved configuration separately from

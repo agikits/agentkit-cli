@@ -5,10 +5,16 @@ Node.js. The package exports an ESM SDK, the `agentkit` executable and the `agen
 executable. Node 22+ is required. The SDK import does not load Commander; the combined package installs
 Commander for the CLI.
 
-The release candidate is version 0.2.0 under the MIT license. The intended npm
-package is `@agikits/agentkit`. It has not been published to npm. Build locally
-with `npm ci && npm run build`, then use `node dist/cli/index.js`, or install
-the tarball produced by `npm pack`.
+Version 0.2.1, MIT license, published on npm as `@agikits/agentkit`:
+
+```sh
+npm install -g @agikits/agentkit
+pbpaste | agentkit init --with-token     # macOS; on Windows: Get-Clipboard | agentkit init --with-token
+agentkit agents list
+```
+
+Or run without a global install: `npx -p @agikits/agentkit agentkit agents list`.
+Setup guide: https://agentkit.ai/docs/developer/cli-and-mcp
 
 ## Connect
 
@@ -24,16 +30,18 @@ agentkit projects --add demo <agent-uuid>
 agentkit sources list demo --json
 ```
 
-Email, Center Stage, Widgets and most Backstage commands require a short-lived Supabase
+Email setup and thread actions, Center Stage, Widgets and most Backstage commands require a short-lived Supabase
 user access token from an authenticated Agentkit session. Set
 `AGENTKIT_SESSION_TOKEN`, or pipe it to `agentkit init --with-session-token`.
 Saved API keys and session tokens are bound to their configured origin. Sessions
 expire normally and are
-never refreshed by the CLI. Workspace API keys remain the credential for ordinary
-v2 methods.
+never refreshed by the CLI. Workspace API keys can read the inbox, edit reviewed drafts and send reviewed draft revisions.
+Other email writes require a user session. Draft approval uses the key identity in the send audit.
 All 75 pinned API paths and every component match the specification published at
-agentkit.ai, observed 2026-10-12. Authenticated runtime acceptance remains a
-separate release gate. Session, rollout and paid-plan requirements still apply.
+agentkit.ai, observed 2026-10-15, including workspace-key draft approval.
+`contracts/provenance.json` records the compared product source and schema hashes.
+Authenticated runtime acceptance remains a separate release gate.
+Session, rollout and paid-plan requirements still apply.
 
 A secret manager can pipe a token into `agentkit init --with-token`. Avoid putting
 keys in command arguments or shell history. Config lives in
@@ -47,7 +55,8 @@ Endpoints must be HTTPS origins; explicit loopback HTTP is accepted for local
 servers. Redirects, URL credentials, paths and query strings are rejected.
 Aliases never override endpoints. No automatic `.env` or repository config loading.
 
-`logout` removes both saved credentials. Environment variables and server keys remain
+`logout` removes both saved credentials; `logout --session` removes only the session token.
+An expired saved session no longer shadows a valid API key on management commands. Environment variables and server keys remain
 active; revoke a key in the dashboard. `health` is an unauthenticated connectivity
 check, not an authentication or entitlement test.
 
@@ -99,8 +108,8 @@ including discarded threads and their review reasons. Filter with
 `--cursor` for paging. Email list responses use `pagination.nextCursor`.
 `email <project> <thread-id>` prints message headers, plain-text bodies and draft
 states; add `--json` for the complete thread. The SDK also exposes
-`listEmailDrafts` and `getEmailMessage`. Email sending, forwarding, discarding,
-restoring and draft edits require a user session. Use the grouped commands below
+`listEmailDrafts` and `getEmailMessage`. Email forwarding and draft requests require a user session; discard, restore,
+reviewed draft edits and sends also accept an account API key. Use the grouped commands below
 for those operations.
 The pinned published API specification includes these email reads. Their
 authenticated runtime acceptance remains pending.
@@ -301,10 +310,11 @@ transcripts in bug reports. Report vulnerabilities privately as described in [SE
 
 ## Email inbox and setup
 
-Email inbox reads accept account API keys or an explicit user session. Email setup
-and writes require a user session, the existing management API eligibility,
-and the email rollout/plan gates. They target the published contract recorded in
-`contracts/provenance.json`. Authenticated workflow acceptance remains pending.
+Email inbox reads and reviewed draft edit/send accept account API keys or an explicit user session.
+Setup and other writes require a user session, the existing management API eligibility,
+and the email rollout/plan gates. Draft edit/send require email entitlement.
+The published draft-approval schema matched the reviewed source on 2026-10-15,
+as recorded in `contracts/provenance.json`. Authenticated workflow acceptance remains pending.
 Use `email` for settings and routing and `emails` for inbox threads and drafts.
 
 ```sh
@@ -333,8 +343,8 @@ Discard requires the reviewed detail's `--inbound-message-id`, plus its pending
 `--draft-id` and `--draft-edited-at` when present. Restore requires the thread's
 `--expected-revision`. Restoring creates review state and never generates or
 sends a reply. `emails draft` explicitly requests a draft without auto-send.
-Draft edit/send require the reviewed draft revision and reject a changed draft,
-a newer inbound message or another reviewer's action. Reload after a conflict.
+Draft edit/send accept a workspace API key or user session. They require the reviewed
+draft revision and reject a changed draft, a newer inbound message or another reviewer's action. Reload after a conflict.
 Send approves the existing draft. Retries retain its delivery identity.
 
 Forward requires `--to` and a stable UUID `--submission-id`, with optional

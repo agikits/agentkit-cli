@@ -421,6 +421,17 @@ describe("AgentkitClient", () => {
     expect(new Headers(calls[1]!.init.headers).has("x-agentkit-auth")).toBe(false);
   });
 
+  it("falls back to the API key when a saved session JWT has expired", async () => {
+    const { fetch, calls } = fakeFetch(() => jsonResponse({ data: [] }));
+    const jwt = (exp: number) => `h.${Buffer.from(JSON.stringify({ exp })).toString("base64url")}.s`;
+    const expired = new AgentkitClient({ key: "account-key", sessionToken: jwt(1), fetch });
+    await expired.listManagementChannels("a1");
+    expect(new Headers(calls[0]!.init.headers).get("authorization")).toBe("Bearer account-key");
+    const live = new AgentkitClient({ key: "account-key", sessionToken: jwt(Date.now() / 1000 + 600), fetch });
+    await live.listManagementChannels("a1");
+    expect(new Headers(calls[1]!.init.headers).get("x-agentkit-auth")).toBe("session");
+  });
+
   it("fails session-only management methods locally without a session", async () => {
     const { fetch, calls } = fakeFetch(() => jsonResponse({}));
     const client = new AgentkitClient({ key: "account-key", fetch });

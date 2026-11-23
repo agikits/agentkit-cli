@@ -1,6 +1,19 @@
 # Changelog
 
-## 0.2.0 candidate
+## 0.2.1
+
+- MCP `conversations_get` and CLI `conversations get` search every source by default, so widget, Playground and Instagram chats no longer 404. Both accept `instagram` as a source.
+- MCP `--agent` restrictions are case-insensitive, and `agents_list` returns every allowed agent instead of filtering one workspace page. `agents_list` returns id, name, url and createdAt only.
+- MCP read errors no longer warn about completed writes; `settings_instructions_update` switches the preset to custom and rejects empty prompts. Tool parameters carry descriptions.
+- Bare `agentkit` and empty command groups print help and exit 0. Every group has a description listing its subcommands.
+- An expired saved session no longer shadows a valid API key on management commands. Add `logout --session`.
+- `train` describes what it re-crawls and prints the server message when no web sources need a crawl.
+- Table output strips terminal control sequences from API text. Passing both a text argument and `--file` is an error.
+
+- Let workspace API keys discard and restore email threads (product PR agikits/agentkit#804). Discard and restore never send, generate or forward mail.
+- Let workspace API keys edit and send explicitly reviewed email draft revisions. Keep setup and other email actions session-only; preserve revision conflicts and API key send audit identity.
+
+## 0.2.0 (published 2026-11-23)
 
 - Add eleven read-only MCP tools, optional agent restrictions and explicitly enabled writes.
 - Add modern and legacy stdio support plus a stateless HTTP handler with per-request authorization and OAuth resource metadata.
@@ -21,7 +34,7 @@
 - Make config writes atomic and private; reject alias endpoint overrides and unsafe origins.
 - Add resource command groups while retaining flat commands.
 - Add an offline capability catalogue and short public-facing management skills.
-- Prepare private tarball/export checks and CI. No public release has occurred.
+- Prepare private tarball/export checks and CI.
 
 ### Management compatibility
 

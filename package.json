@@ -1,6 +1,6 @@
 {
   "name": "@agikits/agentkit",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Agentkit SDK, CLI and stateless MCP for managing AI chatbots.",
   "type": "module",
   "private": false,
@@ -51,7 +51,9 @@
     "MIGRATION.md",
     "contracts",
     "skills/agentkit-widgets/",
-    "skills/agentkit-backstage/"
+    "skills/agentkit-backstage/",
+    "!contracts/deployed-openapi.json",
+    "!distribution/server.json.template"
   ],
   "scripts": {
     "build": "node scripts/build.mjs",

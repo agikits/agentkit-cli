@@ -2096,8 +2096,11 @@
       "post": {
         "operationId": "discardEmailThread",
         "summary": "discard Email Thread",
-        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Only discards the reviewed inbound/draft snapshot. Stale state returns 409.",
+        "description": "Accepts an account API key with API access and agent ownership, or a user session with rollout, MFA and settings.manage permission (or personal ownership). Works when email is disabled. Never sends, generates or forwards mail. Only discards the reviewed inbound/draft snapshot. Stale state returns 409.",
         "security": [
+          {
+            "bearerAuth": []
+          },
           {
             "sessionBearerAuth": []
           }
@@ -2107,7 +2110,7 @@
             "$ref": "#/components/parameters/AgentId"
           },
           {
-            "$ref": "#/components/parameters/SessionAuthMode"
+            "$ref": "#/components/parameters/OptionalSessionAuthMode"
           },
           {
             "name": "threadId",
@@ -2162,8 +2165,11 @@
       "post": {
         "operationId": "restoreEmailThread",
         "summary": "restore Email Thread",
-        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Restores review visibility without generation, actions or delivery. Retired drafts stay retired.",
+        "description": "Accepts an account API key with API access and agent ownership, or a user session with rollout, MFA and settings.manage permission (or personal ownership). Works when email is disabled. Never sends, generates or forwards mail. Restores review visibility without generation, actions or delivery. Retired drafts stay retired.",
         "security": [
+          {
+            "bearerAuth": []
+          },
           {
             "sessionBearerAuth": []
           }
@@ -2173,7 +2179,7 @@
             "$ref": "#/components/parameters/AgentId"
           },
           {
-            "$ref": "#/components/parameters/SessionAuthMode"
+            "$ref": "#/components/parameters/OptionalSessionAuthMode"
           },
           {
             "name": "threadId",
@@ -2228,7 +2234,7 @@
       "post": {
         "operationId": "draftEmailThread",
         "summary": "draft Email Thread",
-        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Explicitly requests a draft. It never auto-sends and rejects system verification mail.",
+        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup. Explicitly requests a draft. It never auto-sends and rejects system verification mail.",
         "security": [
           {
             "sessionBearerAuth": []
@@ -2280,11 +2286,70 @@
         }
       }
     },
+    "/agents/{agentId}/emails/messages/{messageId}": {
+      "get": {
+        "operationId": "getEmailMessage",
+        "summary": "get Email Message",
+        "description": "Accepts an account API key with API access and agent ownership, or an explicit user session with the existing email rollout and MFA. Reads remain available when email is disabled, including discarded email. Returns the stored body, addresses, normalized headers and ingestion disposition. Reading does not change inbox state.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionBearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AgentId"
+          },
+          {
+            "$ref": "#/components/parameters/OptionalSessionAuthMode"
+          },
+          {
+            "name": "messageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Email operation result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailMessageDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
     "/agents/{agentId}/emails/messages/{messageId}/forward": {
       "post": {
         "operationId": "forwardEmailMessage",
         "summary": "forward Email Message",
-        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Forwards stored message text without attachments. Reuse submissionId after an ambiguous timeout and read back the outcome.",
+        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup. Forwards stored message text without attachments. Reuse submissionId after an ambiguous timeout and read back the outcome.",
         "security": [
           {
             "sessionBearerAuth": []
@@ -2471,8 +2536,11 @@
       "patch": {
         "operationId": "editEmailDraft",
         "summary": "edit Email Draft",
-        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Atomically compares the reviewed revision and rejects newer inbound mail or a claimed send.",
+        "description": "Accepts an account API key with API access, agent ownership and email entitlement, or a user session with rollout, MFA and settings.manage permission. Requires an explicit reviewed draft revision. Key approvals retain the API key identity in the send audit. Atomically compares the reviewed revision and rejects newer inbound mail or a claimed send.",
         "security": [
+          {
+            "bearerAuth": []
+          },
           {
             "sessionBearerAuth": []
           }
@@ -2482,7 +2550,7 @@
             "$ref": "#/components/parameters/AgentId"
           },
           {
-            "$ref": "#/components/parameters/SessionAuthMode"
+            "$ref": "#/components/parameters/OptionalSessionAuthMode"
           },
           {
             "name": "draftId",
@@ -2537,8 +2605,11 @@
       "post": {
         "operationId": "sendEmailDraft",
         "summary": "send Email Draft",
-        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Approves the reviewed draft revision. Repeated delivery uses the same draft identity. Already sent is a success; ignored and empty are not delivered.",
+        "description": "Accepts an account API key with API access, agent ownership and email entitlement, or a user session with rollout, MFA and settings.manage permission. Requires an explicit reviewed draft revision. Key approvals retain the API key identity in the send audit. Approves the reviewed draft revision. Repeated delivery uses the same draft identity. Already sent is a success; ignored and empty are not delivered.",
         "security": [
+          {
+            "bearerAuth": []
+          },
           {
             "sessionBearerAuth": []
           }
@@ -2548,7 +2619,7 @@
             "$ref": "#/components/parameters/AgentId"
           },
           {
-            "$ref": "#/components/parameters/SessionAuthMode"
+            "$ref": "#/components/parameters/OptionalSessionAuthMode"
           },
           {
             "name": "draftId",
@@ -2603,7 +2674,7 @@
       "post": {
         "operationId": "enableEmailChannel",
         "summary": "enable Email Channel",
-        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Atomically enables and provisions an inbox. address is an exact initial local part on the configured inbound domain. Different choices for an existing inbox conflict.",
+        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup. Atomically enables and provisions an inbox. address is an exact initial local part on the configured inbound domain. Different choices for an existing inbox conflict.",
         "security": [
           {
             "sessionBearerAuth": []
@@ -2660,7 +2731,7 @@
       "post": {
         "operationId": "disableEmailChannel",
         "summary": "disable Email Channel",
-        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Preserves inbox address, routing and history.",
+        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup. Preserves inbox address, routing and history.",
         "security": [
           {
             "sessionBearerAuth": []
@@ -2707,7 +2778,7 @@
       "get": {
         "operationId": "getEmailSettings",
         "summary": "get Email Settings",
-        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. ",
+        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup. ",
         "security": [
           {
             "sessionBearerAuth": []
@@ -2752,7 +2823,7 @@
       "patch": {
         "operationId": "updateEmailSettings",
         "summary": "update Email Settings",
-        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Patches supplied fields only. signatureHtml currently stores plain text. Empty text clears the signature.",
+        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup. Patches supplied fields only. signatureHtml currently stores plain text. Empty text clears the signature.",
         "security": [
           {
             "sessionBearerAuth": []
@@ -2809,7 +2880,7 @@
       "get": {
         "operationId": "getEmailReplyAddress",
         "summary": "get Email Reply Address",
-        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. ",
+        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup. ",
         "security": [
           {
             "sessionBearerAuth": []
@@ -2854,7 +2925,7 @@
       "put": {
         "operationId": "addEmailReplyAddress",
         "summary": "add Email Reply Address",
-        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Delivers a code to the reply mailbox without returning it. Replaces the existing single inbox reply routing.",
+        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup. Delivers a code to the reply mailbox without returning it. Replaces the existing single inbox reply routing.",
         "security": [
           {
             "sessionBearerAuth": []
@@ -2909,7 +2980,7 @@
       "delete": {
         "operationId": "removeEmailReplyAddress",
         "summary": "remove Email Reply Address",
-        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Clears routing and verification while preserving inbox and history.",
+        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup. Clears routing and verification while preserving inbox and history.",
         "security": [
           {
             "sessionBearerAuth": []
@@ -2956,7 +3027,7 @@
       "post": {
         "operationId": "verifyEmailReplyAddress",
         "summary": "verify Email Reply Address",
-        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Consumes a six-digit mailbox code under existing expiry and attempt limits.",
+        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup. Consumes a six-digit mailbox code under existing expiry and attempt limits.",
         "security": [
           {
             "sessionBearerAuth": []
@@ -3013,7 +3084,7 @@
       "get": {
         "operationId": "listEmailAutomatedSenders",
         "summary": "list Email Automated Senders",
-        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. ",
+        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup. ",
         "security": [
           {
             "sessionBearerAuth": []
@@ -3058,7 +3129,7 @@
       "post": {
         "operationId": "addEmailAutomatedSender",
         "summary": "add Email Automated Sender",
-        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Adds an exact sender preference for future automated mail to reach review. It never grants tools, generation or automatic replies.",
+        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup. Adds an exact sender preference for future automated mail to reach review. It never grants tools, generation or automatic replies.",
         "security": [
           {
             "sessionBearerAuth": []
@@ -3113,7 +3184,7 @@
       "delete": {
         "operationId": "removeEmailAutomatedSender",
         "summary": "remove Email Automated Sender",
-        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. ",
+        "description": "Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup. ",
         "security": [
           {
             "sessionBearerAuth": []
@@ -5573,65 +5644,6 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
-          }
-        }
-      }
-    },
-    "/agents/{agentId}/emails/messages/{messageId}": {
-      "get": {
-        "operationId": "getEmailMessage",
-        "summary": "get Email Message",
-        "description": "Accepts an account API key with API access and agent ownership, or an explicit user session with the existing email rollout and MFA. Reads remain available when email is disabled, including discarded email. Returns the stored body, addresses, normalized headers and ingestion disposition. Reading does not change inbox state.",
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "sessionBearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/AgentId"
-          },
-          {
-            "$ref": "#/components/parameters/OptionalSessionAuthMode"
-          },
-          {
-            "name": "messageId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Email operation result.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EmailMessageDetail"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "409": {
-            "$ref": "#/components/responses/Conflict"
           }
         }
       }
@@ -10067,6 +10079,9 @@
                     "id": {
                       "type": "string"
                     },
+                    "threadId": {
+                      "type": "string"
+                    },
                     "direction": {
                       "type": "string"
                     },
@@ -10154,9 +10169,6 @@
                           "type": "null"
                         }
                       ]
-                    },
-                    "threadId": {
-                      "type": "string"
                     }
                   },
                   "required": [
@@ -10428,6 +10440,131 @@
               "drafts",
               "draft",
               "forwards"
+            ]
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "EmailMessageDetail": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "threadId": {
+                "type": "string"
+              },
+              "direction": {
+                "type": "string"
+              },
+              "draftId": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "providerEmailId": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "fromAddress": {
+                "type": "string"
+              },
+              "toAddresses": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "ccAddresses": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "bccAddresses": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "subject": {
+                "type": "string"
+              },
+              "text": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "html": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "headers": {},
+              "createdAt": {
+                "type": "string"
+              },
+              "processingDisposition": {
+                "type": "string"
+              },
+              "discardReason": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "threadId",
+              "direction",
+              "draftId",
+              "providerEmailId",
+              "fromAddress",
+              "toAddresses",
+              "ccAddresses",
+              "bccAddresses",
+              "subject",
+              "text",
+              "html",
+              "headers",
+              "createdAt",
+              "processingDisposition",
+              "discardReason"
             ]
           }
         },
@@ -14148,131 +14285,6 @@
               }
             }
           }
-        ]
-      },
-      "EmailMessageDetail": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "threadId": {
-                "type": "string"
-              },
-              "direction": {
-                "type": "string"
-              },
-              "draftId": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "providerEmailId": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "fromAddress": {
-                "type": "string"
-              },
-              "toAddresses": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "ccAddresses": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "bccAddresses": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "subject": {
-                "type": "string"
-              },
-              "text": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "html": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "headers": {},
-              "createdAt": {
-                "type": "string"
-              },
-              "processingDisposition": {
-                "type": "string"
-              },
-              "discardReason": {
-                "anyOf": [
-                  {
-                    "type": "object",
-                    "propertyNames": {
-                      "type": "string"
-                    },
-                    "additionalProperties": {}
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              }
-            },
-            "required": [
-              "id",
-              "threadId",
-              "direction",
-              "draftId",
-              "providerEmailId",
-              "fromAddress",
-              "toAddresses",
-              "ccAddresses",
-              "bccAddresses",
-              "subject",
-              "text",
-              "html",
-              "headers",
-              "createdAt",
-              "processingDisposition",
-              "discardReason"
-            ]
-          }
-        },
-        "required": [
-          "data"
         ]
       }
     }

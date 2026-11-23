@@ -7,12 +7,8 @@ describe("email management transport", () => {
     expectTypeOf<ReturnType<AgentkitClient["editEmailDraft"]>>().toEqualTypeOf<Promise<{ data: EmailDraft }>>();
   });
   const operations = [
-    (c: AgentkitClient) => c.discardEmail("agent", "thread", { draftId: null, draftEditedAt: null, inboundMessageId: "message" }),
-    (c: AgentkitClient) => c.restoreEmail("agent", "thread", { expectedRevision: "reviewed" }),
     (c: AgentkitClient) => c.draftEmail("agent", "thread"),
     (c: AgentkitClient) => c.forwardEmail("agent", "message", { to: "review@example.com", submissionId: "stable" }),
-    (c: AgentkitClient) => c.editEmailDraft("agent", "draft", { bodyText: "Reviewed", expectedRevision: "1" }),
-    (c: AgentkitClient) => c.sendEmailDraft("agent", "draft", { expectedRevision: "1" }),
     (c: AgentkitClient) => c.getEmailSettings("agent"),
     (c: AgentkitClient) => c.updateEmailSettings("agent", { signatureHtml: "" }),
     (c: AgentkitClient) => c.enableEmailChannel("agent"),
@@ -25,7 +21,7 @@ describe("email management transport", () => {
     (c: AgentkitClient) => c.addEmailAutomatedSender("agent", { address: "review@example.com" }),
     (c: AgentkitClient) => c.removeEmailAutomatedSender("agent", { address: "review@example.com" }),
   ];
-  it("requires a user session for email setup and writes and never falls back to an account key", async () => {
+  it("requires a user session for email setup and unreviewed writes and never falls back to an account key", async () => {
     let calls = 0;
     const client = new AgentkitClient({ key: "account-key", fetch: async () => { calls++; return new Response("{}"); } });
     for (const operation of operations) await expect(operation(client)).rejects.toMatchObject({ code: "AUTH_SESSION_REQUIRED" });
@@ -37,6 +33,31 @@ describe("email management transport", () => {
     } });
     for (const operation of operations) await operation(authenticated);
     expect(calls).toBe(operations.length);
+  });
+  it.each([
+    { key: "account-key", sessionToken: undefined },
+    { key: "account-key", sessionToken: "expired-session" },
+    { key: undefined, sessionToken: "user-session" },
+  ])("edits, sends, discards and restores reviewed state with credentials %j", async ({ key, sessionToken }) => {
+    const requests: { method?: string; headers: Headers; body: unknown }[] = [];
+    const client = new AgentkitClient({ key, sessionToken, fetch: async (_url, init) => {
+      requests.push({ method: init?.method, headers: new Headers(init?.headers), body: JSON.parse(String(init?.body)) });
+      return new Response('{"data":{"id":"draft"},"status":"sent"}');
+    } });
+    await client.editEmailDraft("agent", "draft", { bodyText: "Reviewed", expectedRevision: "7" });
+    await client.sendEmailDraft("agent", "draft", { expectedRevision: "8" });
+    await client.discardEmail("agent", "thread", { draftId: "draft", draftEditedAt: null, inboundMessageId: "message" });
+    await client.restoreEmail("agent", "thread", { expectedRevision: "9" });
+    expect(requests.map(({ method, body }) => ({ method, body }))).toEqual([
+      { method: "PATCH", body: { bodyText: "Reviewed", expectedRevision: "7" } },
+      { method: "POST", body: { expectedRevision: "8" } },
+      { method: "POST", body: { draftId: "draft", draftEditedAt: null, inboundMessageId: "message" } },
+      { method: "POST", body: { expectedRevision: "9" } },
+    ]);
+    for (const { headers } of requests) {
+      expect(headers.get("authorization")).toBe(`Bearer ${key ?? sessionToken}`);
+      expect(headers.get("x-agentkit-auth")).toBe(key ? null : "session");
+    }
   });
   it("reads the inbox with an account key or an explicit user session", async () => {
     const reads = [(c: AgentkitClient) => c.listEmails("agent"), (c: AgentkitClient) => c.getEmail("agent", "thread"), (c: AgentkitClient) => c.listEmailDrafts("agent"), (c: AgentkitClient) => c.getEmailDraft("agent", "draft"), (c: AgentkitClient) => c.getEmailMessage("agent", "message")];

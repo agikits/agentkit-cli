@@ -50,6 +50,7 @@ import type {
   SourceDocument,
   StreamEvent,
   TrainStatus,
+  TrainingJob,
   ToolResultRequest,
   UrlSourceJob,
   SecurityUpdate,
@@ -146,7 +147,9 @@ export class AgentkitClient {
     headers.set("accept", "application/json");
     headers.set("user-agent", `agentkit-js/${VERSION}`);
     if (mode === "public") return headers;
-    if (mode !== "key" && this.sessionToken) {
+    // Sessions unlock session-only features, but an expired saved session must not shadow a valid API key.
+    const useSession = !!this.sessionToken && (mode === "session" || (mode === "management" && !(this.key && jwtExpired(this.sessionToken))));
+    if (useSession) {
       headers.set("authorization", `Bearer ${this.sessionToken}`);
       headers.set("x-agentkit-auth", "session");
     } else {
@@ -526,7 +529,7 @@ export class AgentkitClient {
   // ---- management: training ----
 
   /** POST /api/v2/agents/{agentId}/train — kick a (re)train; returns a job. */
-  train(agentId: string): Promise<{ jobId: number }> {
+  train(agentId: string): Promise<TrainingJob> {
     return this.request("POST", `/api/v2/agents/${enc(agentId)}/train`);
   }
 
@@ -691,21 +694,21 @@ export class AgentkitClient {
     return this.managementRequest(`${managementPath(agentId)}/channels/center-stage`, "PATCH", request, true);
   }
 
-  /** Inbox reads accept account keys or explicit sessions; setup and writes remain session-only. */
+  /** Inbox reads, discard/restore and reviewed draft edit/send accept account keys; other email writes need a session. */
   listEmails(agentId: string, options: EmailListOptions = {}): Promise<EmailPage<EmailThreadSummary>> { return this.request("GET", `${managementPath(agentId)}/emails${emailQuery(options)}`, undefined, this.key ? "key" : "session"); }
   getEmail(agentId: string, threadId: string): Promise<{ data: EmailThreadDetail }> { return this.request("GET", `${managementPath(agentId)}/emails/${enc(threadId)}`, undefined, this.key ? "key" : "session"); }
   async getEmailMessage(agentId: string, messageId: string): Promise<EmailMessage> {
     const { data } = await this.request<{ data: EmailMessage }>("GET", `${managementPath(agentId)}/emails/messages/${enc(messageId)}`, undefined, this.key ? "key" : "session");
     return data;
   }
-  discardEmail(agentId: string, threadId: string, request: DiscardEmailRequest): Promise<EmailMutationResult> { return this.managementRequest(`${managementPath(agentId)}/emails/${enc(threadId)}/discard`, "POST", request, true); }
-  restoreEmail(agentId: string, threadId: string, request: { expectedRevision: string }): Promise<EmailMutationResult> { return this.managementRequest(`${managementPath(agentId)}/emails/${enc(threadId)}/restore`, "POST", request, true); }
+  discardEmail(agentId: string, threadId: string, request: DiscardEmailRequest): Promise<EmailMutationResult> { return this.request("POST", `${managementPath(agentId)}/emails/${enc(threadId)}/discard`, request, this.key ? "key" : "session"); }
+  restoreEmail(agentId: string, threadId: string, request: { expectedRevision: string }): Promise<EmailMutationResult> { return this.request("POST", `${managementPath(agentId)}/emails/${enc(threadId)}/restore`, request, this.key ? "key" : "session"); }
   draftEmail(agentId: string, threadId: string): Promise<EmailMutationResult> { return this.managementRequest(`${managementPath(agentId)}/emails/${enc(threadId)}/draft`, "POST", undefined, true); }
   forwardEmail(agentId: string, messageId: string, request: ForwardEmailRequest): Promise<EmailMutationResult> { return this.managementRequest(`${managementPath(agentId)}/emails/messages/${enc(messageId)}/forward`, "POST", request, true); }
   listEmailDrafts(agentId: string, options: Pick<EmailListOptions, "limit" | "cursor" | "since"> = {}): Promise<EmailPage<EmailDraft>> { return this.request("GET", `${managementPath(agentId)}/emails/drafts${emailQuery(options)}`, undefined, this.key ? "key" : "session"); }
   getEmailDraft(agentId: string, draftId: string): Promise<{ data: EmailDraft }> { return this.request("GET", `${managementPath(agentId)}/emails/drafts/${enc(draftId)}`, undefined, this.key ? "key" : "session"); }
-  editEmailDraft(agentId: string, draftId: string, request: EditEmailDraftRequest): Promise<{ data: EmailDraft }> { return this.managementRequest(`${managementPath(agentId)}/emails/drafts/${enc(draftId)}`, "PATCH", request, true); }
-  sendEmailDraft(agentId: string, draftId: string, request: { expectedRevision: string }): Promise<EmailMutationResult> { return this.managementRequest(`${managementPath(agentId)}/emails/drafts/${enc(draftId)}/send`, "POST", request, true); }
+  editEmailDraft(agentId: string, draftId: string, request: EditEmailDraftRequest): Promise<{ data: EmailDraft }> { return this.request("PATCH", `${managementPath(agentId)}/emails/drafts/${enc(draftId)}`, request, this.key ? "key" : "session"); }
+  sendEmailDraft(agentId: string, draftId: string, request: { expectedRevision: string }): Promise<EmailMutationResult> { return this.request("POST", `${managementPath(agentId)}/emails/drafts/${enc(draftId)}/send`, request, this.key ? "key" : "session"); }
   getEmailSettings(agentId: string): Promise<{ data: EmailChannelData }> { return this.managementRequest(`${managementPath(agentId)}/email/settings`, "GET", undefined, true); }
   updateEmailSettings(agentId: string, request: EmailSettingsPatch): Promise<{ data: EmailChannelData }> { return this.managementRequest(`${managementPath(agentId)}/email/settings`, "PATCH", request, true); }
   enableEmailChannel(agentId: string, request: { address?: string } = {}): Promise<{ data: EmailChannelData }> { return this.managementRequest(`${managementPath(agentId)}/channels/email/enable`, "POST", request, true); }
@@ -748,6 +751,16 @@ export class AgentkitClient {
   getBackstageChange(agentId: string, changeId: string): Promise<BackstageChange> { return this.managementRequest(`${managementPath(agentId)}/backstage/changes/${enc(changeId)}`, "GET", undefined, true); }
   decideBackstageChange(agentId: string, changeId: string, decision: BackstageDecision): Promise<BackstageChangeState> { return this.managementRequest(`${managementPath(agentId)}/backstage/changes/${enc(changeId)}`, "POST", { decision }, true); }
   chatBackstage(agentId: string, request: BackstageMessageRequest): AsyncGenerator<StreamEvent> { return this.managementStream(`${managementPath(agentId)}/backstage/chat`, request); }
+}
+
+/** True only for a decodable JWT whose exp has passed; opaque tokens are left to the server. */
+function jwtExpired(token: string, now = Date.now()): boolean {
+  const payload = token.split(".")[1];
+  if (!payload) return false;
+  try {
+    const exp = (JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/"))) as { exp?: unknown }).exp;
+    return typeof exp === "number" && exp * 1000 <= now;
+  } catch { return false; }
 }
 
 function managementPath(agentId: string): string { return `/api/v2/agents/${enc(agentId)}`; }
