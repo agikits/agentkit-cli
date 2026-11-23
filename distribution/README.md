@@ -55,7 +55,7 @@ files do not meet the hosted ChatGPT submission requirement.
 ## MCP Registry
 
 `server.json` is the finalized identity candidate for `io.github.agikits/agentkit`
-and `@agikits/agentkit@0.2.0`. It is **not published**. Its namespace still needs
+and `@agikits/agentkit@0.2.1`. It is **not published**. Its namespace still needs
 verification by `mcp-publisher` and the repository URL must exist publicly.
 `server.json.template` remains a generic template with deliberate placeholders.
 Do not publish that template. [The Registry quickstart](https://modelcontextprotocol.io/registry/quickstart)
@@ -70,7 +70,7 @@ provides this subcommand using the same MCP implementation as `agentkit-mcp`.
 The resulting launch command is:
 
 ```sh
-npx --yes @agikits/agentkit@0.2.0 mcp
+npx --yes @agikits/agentkit@0.2.1 mcp
 ```
 
 This uses npm's inferred `agentkit` bin and selects MCP mode explicitly.
