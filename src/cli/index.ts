@@ -829,11 +829,14 @@ program
   });
 
 program.command("file-upload-urls <project>").description("Create signed upload URLs for knowledge files")
-  .requiredOption("--file-name <names...>", "File name(s), 1-20").option("--json", "Print JSON output")
-  .action(async (project: string, opts: { fileName: string[] }) => {
+  .requiredOption("--file-name <names...>", "File name(s), 1-20")
+  .option("--size <bytes...>", "File size(s) in bytes, in --file-name order; omitted sizes reserve 50 MB each", (v: string, prev: number[] = []) => [...prev, positiveInteger(v)])
+  .option("--json", "Print JSON output")
+  .action(async (project: string, opts: { fileName: string[]; size?: number[] }) => {
     if (opts.fileName.length > 20) throw new Error("--file-name accepts at most 20 files.");
+    if (opts.size && opts.size.length !== opts.fileName.length) throw new Error("--size needs one value per --file-name.");
     const { agentId, client } = await projectClient(project);
-    out(await client.createFileUploadUrls(agentId, { files: opts.fileName.map(fileName => ({ fileName })) }));
+    out(await client.createFileUploadUrls(agentId, { files: opts.fileName.map((fileName, i) => ({ fileName, ...(opts.size ? { size: opts.size[i]! } : {}) })) }));
   });
 
 program.command("register-files <project>").description("Register previously uploaded knowledge files")

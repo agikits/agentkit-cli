@@ -1,11 +1,11 @@
 {
-  "productCommit": "679686ff01b8a73c83f0264eb744caa73a2d8fb2",
+  "productCommit": "76cec23a98bc81876c2ccf8007daaf9bc335870b",
   "source": "apps/chatbots/app/api/v2/_lib/openapi/spec.ts",
-  "sha256": "c2687e42658de4ef000a2d30fd10d17af09a26ca5cc13629d2629702eaa4876e",
+  "sha256": "94c90ddf24dc0143e0a1f2a67f86d4920bce7011876939988d17b45bcbf5c412",
   "deploymentStatus": "schema-observed",
   "liveBaseline": {
     "path": "deployed-openapi.json",
-    "sha256": "c2687e42658de4ef000a2d30fd10d17af09a26ca5cc13629d2629702eaa4876e"
+    "sha256": "94c90ddf24dc0143e0a1f2a67f86d4920bce7011876939988d17b45bcbf5c412"
   },
   "playgroundChange": {
     "productBranch": "sideplan/cli-playground-chats",
@@ -25,10 +25,10 @@
   "authenticatedRuntimeAcceptance": "pending",
   "liveObservation": {
     "url": "https://agentkit.ai/openapi.json",
-    "observedAt": "2026-11-22T13:58:00Z",
-    "sha256": "c2687e42658de4ef000a2d30fd10d17af09a26ca5cc13629d2629702eaa4876e",
-    "rawResponseSha256": "94b9f0f14e6ca63c955627275abef8ef0595b2fb9bd3c21faf29be09038ec911",
-    "verification": "Entire parsed published specification equals the reviewed snapshot, observed after product commit 679686ff deployed. Authenticated runtime acceptance remains pending.",
+    "observedAt": "2026-11-23T18:02:26Z",
+    "sha256": "94c90ddf24dc0143e0a1f2a67f86d4920bce7011876939988d17b45bcbf5c412",
+    "rawResponseSha256": "394fbc01321501e1136119d4453659bf20b39f4d0aaf1b441833952eb6ae23b7",
+    "verification": "Entire parsed published specification equals the reviewed snapshot, observed after product commit 76cec23a (PR #813) deployed. Authenticated runtime acceptance remains pending.",
     "sourceModules": [
       "apps/chatbots/app/api/v2/_lib/openapi/spec.ts",
       "apps/chatbots/app/api/v2/_lib/openapi/management-spec.ts",
@@ -36,7 +36,13 @@
       "apps/chatbots/app/api/v2/_lib/schemas/email.ts",
       "apps/chatbots/app/[locale]/home/[account]/(dashboard)/chatbots/[chatbot]/_lib/schema/ai-settings.schema.ts"
     ],
-    "productCommit": "679686ff01b8a73c83f0264eb744caa73a2d8fb2",
-    "reviewedProductCommit": "679686ff01b8a73c83f0264eb744caa73a2d8fb2"
+    "productCommit": "76cec23a98bc81876c2ccf8007daaf9bc335870b",
+    "reviewedProductCommit": "76cec23a98bc81876c2ccf8007daaf9bc335870b"
+  },
+  "uploadReservationChange": {
+    "productPullRequest": "https://github.com/agikits/agentkit/pull/813",
+    "deploymentStatus": "schema-observed",
+    "productCommit": "76cec23a98bc81876c2ccf8007daaf9bc335870b",
+    "scope": "Optional per-file size on upload-URL requests (reserved against the account upload budget); 429 on upload-URL creation and 409 on repeat registration."
   }
 }

@@ -8,6 +8,7 @@
 - Bare `agentkit` and empty command groups print help and exit 0. Every group has a description listing its subcommands.
 - An expired saved session no longer shadows a valid API key on management commands. Add `logout --session`.
 - `train` describes what it re-crawls and prints the server message when no web sources need a crawl.
+- `sources file-upload-urls --size` declares file sizes so each URL reserves only what it needs (product PR agikits/agentkit#813); the pinned contract includes the new 429 and 409 responses.
 - Table output strips terminal control sequences from API text. Passing both a text argument and `--file` is an error.
 
 - Let workspace API keys discard and restore email threads (product PR agikits/agentkit#804). Discard and restore never send, generate or forward mail.

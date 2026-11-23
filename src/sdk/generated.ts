@@ -1216,7 +1216,7 @@ export interface paths {
         put?: never;
         /**
          * Create signed file upload URLs
-         * @description Creates signed storage upload URLs for one to 20 supported files.
+         * @description Creates signed storage upload URLs for one to 20 supported files. Each URL reserves the declared `size` (50 MB when omitted) against the account upload budget until the file is registered and processed, or the URL expires after two hours. Returns 429 when too many uploads are outstanding or too many URLs were requested in the last hour.
          */
         post: operations["createFileUploadUrls"];
         delete?: never;
@@ -1236,7 +1236,7 @@ export interface paths {
         put?: never;
         /**
          * Register uploaded file sources
-         * @description Validates previously uploaded files and queues them for processing.
+         * @description Validates previously uploaded files and queues them for processing. Each path must come from an unexpired upload URL, can be registered once (a repeat returns 409), and its object must not exceed the declared size.
          */
         post: operations["registerFileSources"];
         delete?: never;
@@ -2996,6 +2996,8 @@ export interface components {
         };
         FileName: {
             fileName: string;
+            /** @description File size in bytes. Reserved against the account upload budget; the uploaded object must not exceed it. Omitting it reserves the 50 MB maximum. */
+            size?: number;
         };
         CreateFileUploadUrlsRequest: {
             files: components["schemas"]["FileName"][];
@@ -6170,6 +6172,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -6203,6 +6206,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             500: components["responses"]["InternalServerError"];
         };
     };
