@@ -580,7 +580,7 @@ export interface paths {
         put?: never;
         /**
          * discard Email Thread
-         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Only discards the reviewed inbound/draft snapshot. Stale state returns 409.
+         * @description Accepts an account API key with API access and agent ownership, or a user session with rollout, MFA and settings.manage permission (or personal ownership). Works when email is disabled. Never sends, generates or forwards mail. Only discards the reviewed inbound/draft snapshot. Stale state returns 409.
          */
         post: operations["discardEmailThread"];
         delete?: never;
@@ -600,7 +600,7 @@ export interface paths {
         put?: never;
         /**
          * restore Email Thread
-         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Restores review visibility without generation, actions or delivery. Retired drafts stay retired.
+         * @description Accepts an account API key with API access and agent ownership, or a user session with rollout, MFA and settings.manage permission (or personal ownership). Works when email is disabled. Never sends, generates or forwards mail. Restores review visibility without generation, actions or delivery. Retired drafts stay retired.
          */
         post: operations["restoreEmailThread"];
         delete?: never;
@@ -620,9 +620,29 @@ export interface paths {
         put?: never;
         /**
          * draft Email Thread
-         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Explicitly requests a draft. It never auto-sends and rejects system verification mail.
+         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup. Explicitly requests a draft. It never auto-sends and rejects system verification mail.
          */
         post: operations["draftEmailThread"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agents/{agentId}/emails/messages/{messageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * get Email Message
+         * @description Accepts an account API key with API access and agent ownership, or an explicit user session with the existing email rollout and MFA. Reads remain available when email is disabled, including discarded email. Returns the stored body, addresses, normalized headers and ingestion disposition. Reading does not change inbox state.
+         */
+        get: operations["getEmailMessage"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -640,7 +660,7 @@ export interface paths {
         put?: never;
         /**
          * forward Email Message
-         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Forwards stored message text without attachments. Reuse submissionId after an ambiguous timeout and read back the outcome.
+         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup. Forwards stored message text without attachments. Reuse submissionId after an ambiguous timeout and read back the outcome.
          */
         post: operations["forwardEmailMessage"];
         delete?: never;
@@ -688,7 +708,7 @@ export interface paths {
         head?: never;
         /**
          * edit Email Draft
-         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Atomically compares the reviewed revision and rejects newer inbound mail or a claimed send.
+         * @description Accepts an account API key with API access, agent ownership and email entitlement, or a user session with rollout, MFA and settings.manage permission. Requires an explicit reviewed draft revision. Key approvals retain the API key identity in the send audit. Atomically compares the reviewed revision and rejects newer inbound mail or a claimed send.
          */
         patch: operations["editEmailDraft"];
         trace?: never;
@@ -704,7 +724,7 @@ export interface paths {
         put?: never;
         /**
          * send Email Draft
-         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Approves the reviewed draft revision. Repeated delivery uses the same draft identity. Already sent is a success; ignored and empty are not delivered.
+         * @description Accepts an account API key with API access, agent ownership and email entitlement, or a user session with rollout, MFA and settings.manage permission. Requires an explicit reviewed draft revision. Key approvals retain the API key identity in the send audit. Approves the reviewed draft revision. Repeated delivery uses the same draft identity. Already sent is a success; ignored and empty are not delivered.
          */
         post: operations["sendEmailDraft"];
         delete?: never;
@@ -724,7 +744,7 @@ export interface paths {
         put?: never;
         /**
          * enable Email Channel
-         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Atomically enables and provisions an inbox. address is an exact initial local part on the configured inbound domain. Different choices for an existing inbox conflict.
+         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup. Atomically enables and provisions an inbox. address is an exact initial local part on the configured inbound domain. Different choices for an existing inbox conflict.
          */
         post: operations["enableEmailChannel"];
         delete?: never;
@@ -744,7 +764,7 @@ export interface paths {
         put?: never;
         /**
          * disable Email Channel
-         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Preserves inbox address, routing and history.
+         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup. Preserves inbox address, routing and history.
          */
         post: operations["disableEmailChannel"];
         delete?: never;
@@ -762,7 +782,7 @@ export interface paths {
         };
         /**
          * get Email Settings
-         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup.
+         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup.
          */
         get: operations["getEmailSettings"];
         put?: never;
@@ -772,7 +792,7 @@ export interface paths {
         head?: never;
         /**
          * update Email Settings
-         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Patches supplied fields only. signatureHtml currently stores plain text. Empty text clears the signature.
+         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup. Patches supplied fields only. signatureHtml currently stores plain text. Empty text clears the signature.
          */
         patch: operations["updateEmailSettings"];
         trace?: never;
@@ -786,18 +806,18 @@ export interface paths {
         };
         /**
          * get Email Reply Address
-         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup.
+         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup.
          */
         get: operations["getEmailReplyAddress"];
         /**
          * add Email Reply Address
-         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Delivers a code to the reply mailbox without returning it. Replaces the existing single inbox reply routing.
+         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup. Delivers a code to the reply mailbox without returning it. Replaces the existing single inbox reply routing.
          */
         put: operations["addEmailReplyAddress"];
         post?: never;
         /**
          * remove Email Reply Address
-         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Clears routing and verification while preserving inbox and history.
+         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup. Clears routing and verification while preserving inbox and history.
          */
         delete: operations["removeEmailReplyAddress"];
         options?: never;
@@ -816,7 +836,7 @@ export interface paths {
         put?: never;
         /**
          * verify Email Reply Address
-         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Consumes a six-digit mailbox code under existing expiry and attempt limits.
+         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup. Consumes a six-digit mailbox code under existing expiry and attempt limits.
          */
         post: operations["verifyEmailReplyAddress"];
         delete?: never;
@@ -834,18 +854,18 @@ export interface paths {
         };
         /**
          * list Email Automated Senders
-         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup.
+         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup.
          */
         get: operations["listEmailAutomatedSenders"];
         put?: never;
         /**
          * add Email Automated Sender
-         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup. Adds an exact sender preference for future automated mail to reach review. It never grants tools, generation or automatic replies.
+         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup. Adds an exact sender preference for future automated mail to reach review. It never grants tools, generation or automatic replies.
          */
         post: operations["addEmailAutomatedSender"];
         /**
          * remove Email Automated Sender
-         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable, removal, discard and restore cleanup.
+         * @description Requires an explicit user session, API access and the existing email rollout. MFA must be satisfied. Writes require settings.manage permission (or personal ownership) and email entitlement, except disable and removal cleanup.
          */
         delete: operations["removeEmailAutomatedSender"];
         options?: never;
@@ -1607,26 +1627,6 @@ export interface paths {
          * @description Checks the connected account permissions and returns the verification outcome and latest connection state.
          */
         post: operations["refreshInstagramPermissions"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/agents/{agentId}/emails/messages/{messageId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * get Email Message
-         * @description Accepts an account API key with API access and agent ownership, or an explicit user session with the existing email rollout and MFA. Reads remain available when email is disabled, including discarded email. Returns the stored body, addresses, normalized headers and ingestion disposition. Reading does not change inbox state.
-         */
-        get: operations["getEmailMessage"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2527,6 +2527,7 @@ export interface components {
                 emailAddressId: string;
                 messages: {
                     id: string;
+                    threadId: string;
                     direction: string;
                     draftId: string | null;
                     providerEmailId: string | null;
@@ -2543,7 +2544,6 @@ export interface components {
                     discardReason: {
                         [key: string]: unknown;
                     } | null;
-                    threadId: string;
                 }[];
                 drafts: {
                     id: string;
@@ -2584,6 +2584,28 @@ export interface components {
                     /** @enum {string} */
                     status: "delivered" | "failed" | "unknown";
                 }[];
+            };
+        };
+        EmailMessageDetail: {
+            data: {
+                id: string;
+                threadId: string;
+                direction: string;
+                draftId: string | null;
+                providerEmailId: string | null;
+                fromAddress: string;
+                toAddresses: string[];
+                ccAddresses: string[];
+                bccAddresses: string[];
+                subject: string;
+                text: string | null;
+                html: string | null;
+                headers: unknown;
+                createdAt: string;
+                processingDisposition: string;
+                discardReason: {
+                    [key: string]: unknown;
+                } | null;
             };
         };
         EmailDraftList: {
@@ -3380,28 +3402,6 @@ export interface components {
             automations: components["schemas"]["InstagramAutomation"][];
             conversation_starters: components["schemas"]["InstagramConversationStarters"];
             menu: components["schemas"]["InstagramMenu"];
-        };
-        EmailMessageDetail: {
-            data: {
-                id: string;
-                threadId: string;
-                direction: string;
-                draftId: string | null;
-                providerEmailId: string | null;
-                fromAddress: string;
-                toAddresses: string[];
-                ccAddresses: string[];
-                bccAddresses: string[];
-                subject: string;
-                text: string | null;
-                html: string | null;
-                headers: unknown;
-                createdAt: string;
-                processingDisposition: string;
-                discardReason: {
-                    [key: string]: unknown;
-                } | null;
-            };
         };
     };
     responses: {
@@ -4851,9 +4851,9 @@ export interface operations {
     discardEmailThread: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Selects explicit user-session authentication. */
-                "X-Agentkit-Auth": components["parameters"]["SessionAuthMode"];
+            header?: {
+                /** @description Set to session when Authorization contains a Supabase user access JWT. Required when selecting session authentication; omit when using a workspace API key. */
+                "X-Agentkit-Auth"?: components["parameters"]["OptionalSessionAuthMode"];
             };
             path: {
                 /** @description Agent UUID. */
@@ -4887,9 +4887,9 @@ export interface operations {
     restoreEmailThread: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Selects explicit user-session authentication. */
-                "X-Agentkit-Auth": components["parameters"]["SessionAuthMode"];
+            header?: {
+                /** @description Set to session when Authorization contains a Supabase user access JWT. Required when selecting session authentication; omit when using a workspace API key. */
+                "X-Agentkit-Auth"?: components["parameters"]["OptionalSessionAuthMode"];
             };
             path: {
                 /** @description Agent UUID. */
@@ -4943,6 +4943,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EmailMutationResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getEmailMessage: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Set to session when Authorization contains a Supabase user access JWT. Required when selecting session authentication; omit when using a workspace API key. */
+                "X-Agentkit-Auth"?: components["parameters"]["OptionalSessionAuthMode"];
+            };
+            path: {
+                /** @description Agent UUID. */
+                agentId: components["parameters"]["AgentId"];
+                messageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Email operation result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailMessageDetail"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -5060,9 +5092,9 @@ export interface operations {
     editEmailDraft: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Selects explicit user-session authentication. */
-                "X-Agentkit-Auth": components["parameters"]["SessionAuthMode"];
+            header?: {
+                /** @description Set to session when Authorization contains a Supabase user access JWT. Required when selecting session authentication; omit when using a workspace API key. */
+                "X-Agentkit-Auth"?: components["parameters"]["OptionalSessionAuthMode"];
             };
             path: {
                 /** @description Agent UUID. */
@@ -5096,9 +5128,9 @@ export interface operations {
     sendEmailDraft: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Selects explicit user-session authentication. */
-                "X-Agentkit-Auth": components["parameters"]["SessionAuthMode"];
+            header?: {
+                /** @description Set to session when Authorization contains a Supabase user access JWT. Required when selecting session authentication; omit when using a workspace API key. */
+                "X-Agentkit-Auth"?: components["parameters"]["OptionalSessionAuthMode"];
             };
             path: {
                 /** @description Agent UUID. */
@@ -7069,38 +7101,6 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-        };
-    };
-    getEmailMessage: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Set to session when Authorization contains a Supabase user access JWT. Required when selecting session authentication; omit when using a workspace API key. */
-                "X-Agentkit-Auth"?: components["parameters"]["OptionalSessionAuthMode"];
-            };
-            path: {
-                /** @description Agent UUID. */
-                agentId: components["parameters"]["AgentId"];
-                messageId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Email operation result. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EmailMessageDetail"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
         };
     };
 }

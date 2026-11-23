@@ -95,7 +95,7 @@ function oneOf<T extends string>(...values: T[]): (v: string) => T {
   };
 }
 
-const parseSource = oneOf<ConversationSource>("api_v2", "playground", "widget", "all");
+const parseSource = oneOf<ConversationSource>("api_v2", "playground", "widget", "instagram", "all");
 const parseEmailStatus = oneOf<EmailStatus>("to_review", "sent", "discarded", "all");
 const parseIgStatus = oneOf<InstagramAutomationStatus>("draft", "live", "off");
 const parseManagementChannel = oneOf<import("../sdk/types.js").ManagementChannelId>("web", "help_page", "center_stage", "instagram", "whatsapp", "email");
@@ -141,6 +141,11 @@ async function emailReadProjectClient(project: string): Promise<{ agentId: strin
   const [entry, config] = await Promise.all([loadProject(project), resolveConfig(globalOpts(), { requireKey: false })]);
   if (!config.key) return managementProjectClient(project);
   return { agentId: entry.agentId, client: new AgentkitClient({ baseUrl: config.url, key: config.key, ...clientOptions() }) };
+}
+
+/** Strip terminal control sequences from untrusted text printed in tables. */
+function cell(value: unknown): string {
+  return String(value ?? "").replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, "").replace(/[\u0000-\u001f\u007f-\u009f]/g, " ");
 }
 
 function out(value: unknown): void {
@@ -194,17 +199,24 @@ program
       ...(url ? { url } : {}),
     };
     if (!next.key && !next.url) {
-      throw new Error("Nothing to save. Pass --key and/or --url.");
+      throw new Error("Nothing to save. Pipe an API key into agentkit init --with-token, for example: pbpaste | agentkit init --with-token");
     }
     await writeConfig(next);
     if (globalOpts().json) out({ saved: true });
-    else console.log(`Saved config to ${configPath()}`);
+    else console.log(`Saved config to ${configPath()}${key ? "\nVerify with: agentkit agents list" : ""}`);
   });
 
 program.command("logout").description("Remove saved credentials; environment variables and server keys remain active")
-  .action(async () => {
-    const { url } = await readConfig();
-    await writeConfig(url ? { url } : {});
+  .option("--session", "Remove only the saved user session token")
+  .action(async (opts: { session?: boolean }) => {
+    const config = await readConfig();
+    if (opts.session) {
+      const { sessionToken: _token, sessionUrl: _origin, ...rest } = config;
+      await writeConfig(rest);
+      out({ loggedOut: true, scope: "session" });
+      return;
+    }
+    await writeConfig(config.url ? { url: config.url } : {});
     out({ loggedOut: true, serverKeyRevoked: false });
   });
 program.command("projects").description("Manage user aliases")
@@ -274,12 +286,12 @@ program
 program
   .command("conversations <project>")
   .description(
-    "List conversations (default source=api_v2; use --source playground|widget|all for other supported chats)",
+    "List conversations (default source=api_v2; use --source playground|widget|instagram|all for other chats)",
   )
   .option("--limit <n>", "Page size (1-100)", (v: string) => parseLimit(v))
   .option("--cursor <c>", "Pagination cursor")
   .option("--user <id>", "Filter by end-user id")
-  .option("--source <s>", "Source filter: api_v2 | playground | widget | all", parseSource)
+  .option("--source <s>", "Source filter: api_v2 | playground | widget | instagram | all", parseSource)
   .option("--json", "Print JSON output")
   .action(
     async (
@@ -303,7 +315,7 @@ program
         : await client.listConversations(agentId, listOpts);
       if (opts.json) return out(list);
       for (const c of list.data) {
-        console.log(`${c.id}\t${c.status}\t${c.userId ?? "-"}\t${c.title}`);
+        console.log([c.id, c.status, c.userId ?? "-", c.title].map(cell).join("\t"));
       }
       printCursorFooter(list.pagination);
     },
@@ -311,8 +323,8 @@ program
 
 program
   .command("conversation <project> <conversationId>")
-  .description("Show a conversation with its messages")
-  .option("--source <s>", "Source filter: api_v2 | playground | widget | all", parseSource)
+  .description("Show a conversation with its messages, searching all sources by default")
+  .option("--source <s>", "Source filter: api_v2 | playground | widget | instagram | all (default all)", parseSource, "all")
   .option("--json", "Print JSON output")
   .action(
     async (
@@ -350,7 +362,7 @@ program
     for (const thread of list.data) {
       const from = thread.customerName ? `${thread.customerName} <${thread.customerEmail}>` : thread.customerEmail;
       const reason = thread.discarded ? emailReviewReason(thread.discardReason, thread.discardSource) : "";
-      console.log([from, thread.subject, thread.status, thread.lastActivityAt, thread.id, reason].join("\t"));
+      console.log([from, thread.subject, thread.status, thread.lastActivityAt, thread.id, reason].map(cell).join("\t"));
     }
     if (list.pagination.hasMore) console.error(`\n(more: next cursor ${list.pagination.nextCursor})`);
   });
@@ -390,11 +402,11 @@ program
 program
   .command("export <project>")
   .description(
-    "Export conversations with full transcripts (maxLimit 20; --source playground|widget|all for other supported chats)",
+    "Export conversations with full transcripts (maxLimit 20; --source playground|widget|instagram|all for other chats)",
   )
   .option("--limit <n>", "Page size (1-20)", (v: string) => parseLimit(v, 20))
   .option("--cursor <c>", "Pagination cursor")
-  .option("--source <s>", "Source filter: api_v2 | playground | widget | all", parseSource)
+  .option("--source <s>", "Source filter: api_v2 | playground | widget | instagram | all", parseSource)
   .option("--json", "Print JSON output")
   .action(
     async (
@@ -541,7 +553,7 @@ program.command("ai-settings <project>").description("Show the agent's AI settin
 
 program
   .command("set-model <project> <model>")
-  .description("Set the agent's AI model (e.g. openai/gpt-5.6-luna)")
+  .description("Set the agent's AI model (e.g. openai/gpt-6-luna)")
   .option("--json", "Print JSON output")
   .action(async (project: string, model: string, opts: { json?: boolean }) => {
     const { agentId, client } = await projectClient(project);
@@ -749,7 +761,7 @@ program
       });
       if (opts.json) return out(list);
       for (const s of list.data) {
-        console.log(`${s.id}\t${s.sourceType}\t${s.title}`);
+        console.log([s.id, s.sourceType, s.title].map(cell).join("\t"));
       }
       printCursorFooter(list.pagination);
     },
@@ -850,7 +862,7 @@ program
 
 program
   .command("train <project>")
-  .description("Kick a (re)train, or show status with --status")
+  .description("Re-crawl web-page sources (other sources update when added), or show status with --status")
   .option("--status", "Show training status instead of starting a run")
   .option("--json", "Print JSON output")
   .action(
@@ -871,7 +883,7 @@ program
       }
       const job = await client.train(agentId);
       if (opts.json) return out(job);
-      console.log(`training started${job.jobId ? ` (job ${job.jobId})` : ""}`);
+      console.log(job.jobId === null ? job.message : `retraining ${job.count} web source(s) (job ${job.jobId})`);
     },
   );
 
@@ -1365,6 +1377,7 @@ async function readTextInput(
   file: string | undefined,
   errorMessage: string,
 ): Promise<string> {
+  if (text != null && file) throw new Error("Use either the text argument or --file, not both.");
   if (file === "-") text = await readStdin();
   else if (file) text = await readFile(file, "utf8");
   if (text == null) text = await readStdin();
@@ -1405,8 +1418,23 @@ const groups: Record<string, Record<string, string>> = {
   widgets: { list: "widgets", get: "widget", create: "widget-create", save: "widget-save", status: "widget-status", publish: "widget-publish", delete: "widget-delete", duplicate: "widget-duplicate", export: "widget-export", import: "widget-import", versions: "widget-versions" },
   backstage: { overview: "backstage-overview", chat: "backstage-chat", sessions: "backstage-sessions", session: "backstage-session", "delete-session": "backstage-delete-session", change: "backstage-change", decide: "backstage-decide" },
 };
+const groupDescriptions: Record<string, string> = {
+  agents: "Create, inspect, update and delete agents",
+  sources: "Manage knowledge sources",
+  conversations: "Read, export and rate conversations",
+  contacts: "List, add and import contacts",
+  settings: "Read and change AI, design, security, notification and training settings",
+  instagram: "Instagram status, automations, starters and menu",
+  channels: "Channel status and configuration",
+  actions: "Manage custom actions (tools the agent can call)",
+  secrets: "Manage agent secrets used by actions",
+  widgets: "Manage, publish and version widgets",
+  backstage: "Backstage sessions, chat and change review",
+};
 for (const [name, commands] of Object.entries(groups)) {
   const group = program.commands.find(c => c.name() === name) ?? program.command(name);
+  group.summary(`${groupDescriptions[name]} (${Object.keys(commands).join(", ")})`);
+  if (!group.description()) group.description(groupDescriptions[name]!);
   // Legacy commands also act as groups, so Commander can consume shared
   // options on the parent. Forward explicit values and apply the child's
   // parser (export, for example, has a stricter page limit than list).
@@ -1431,7 +1459,7 @@ program.configureHelp({
   visibleCommands: command => command.commands.filter(child => !legacyNames.has(child.name()) || child.commands.length > 0),
 });
 program.command("mcp").description("Run MCP over stdio, read-only by default")
-  .option("--allow-writes", "Expose text knowledge, instruction updates and unrestricted agent creation")
+  .option("--allow-writes", "Expose text knowledge, instruction updates and agent creation (without --agent)")
   .option("--agent <uuid...>", "Restrict this connection to specified agent UUIDs")
   .action(async (options: { allowWrites?: boolean; agent?: string[] }) => {
     if (globalOpts().key) throw new Error("MCP keys must come from saved config or AGENTKIT_API_KEY, not command arguments.");
@@ -1440,7 +1468,8 @@ program.command("mcp").description("Run MCP over stdio, read-only by default")
   });
 registerEmailCommands(program, managementProjectClient, emailReadProjectClient, out);
 program.parseAsync().catch((error: unknown) => {
-  if (error instanceof CommanderError && error.exitCode === 0) return;
+  // Commander reports group help without a subcommand as an error; showing help is a successful outcome.
+  if (error instanceof CommanderError && (error.exitCode === 0 || error.code === "commander.help")) return;
   const code = error instanceof AgentkitError ? error.code : cancellation.signal.aborted ? "REQUEST_CANCELLED" : "CLI_ERROR";
   const message = error instanceof Error ? error.message : "Command failed.";
   console.error(redact(JSON.stringify({ error: { code, message,

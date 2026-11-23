@@ -45,6 +45,31 @@ describe("installed-style executable", () => {
     const bad = await bin(["nonsense", "--json"]);
     expect(bad.code).toBe(1); expect(JSON.parse(bad.stderr).error.code).toBe("CLI_ERROR"); expect(requests).toHaveLength(0);
   });
+  it("treats bare and group help as success and describes every group", async () => {
+    for (const args of [[], ["settings"], ["actions"], ["secrets"], ["backstage"]]) {
+      const result = await bin(args);
+      expect(result.code, result.stderr).toBe(0);
+      expect(result.stdout + result.stderr).not.toContain("(outputHelp)");
+    }
+    const help = (await bin(["--help"])).stdout;
+    expect(help).toMatch(/settings\s+Read and change AI.*\(ai, model, instructions/);
+    expect(help).toMatch(/backstage\s+Backstage sessions/);
+    expect(requests).toHaveLength(0);
+  });
+  it("prints a training message when no web sources need a crawl and strips control characters from tables", async () => {
+    respond = res => res.end(JSON.stringify({ jobId: null, count: 0, message: "No web sources to retrain." }));
+    const train = await bin(["train", AGENT, "--key", "test-key"]);
+    expect(train.code, train.stderr).toBe(0); expect(train.stdout.trim()).toBe("No web sources to retrain.");
+    respond = res => res.end(JSON.stringify({ data: [{ id: "c1", status: "open", userId: null, title: "Hi\u001b[31m\nthere\u0007" }], pagination: { cursor: null, hasMore: false, total: 1 } }));
+    const list = await bin(["conversations", "list", AGENT, "--key", "test-key"]);
+    expect(list.stdout).toBe("c1\topen\t-\tHi there \n");
+  });
+  it("reads a conversation from any source by default", async () => {
+    respond = res => res.end(JSON.stringify({ data: { id: "c1", title: "t", messages: [] } }));
+    const result = await bin(["conversations", "get", AGENT, "c1", "--key", "test-key", "--json"]);
+    expect(result.code, result.stderr).toBe(0);
+    expect(new URL(requests.at(-1)!.url!, url).searchParams.get("source")).toBe("all");
+  });
   it("shows resource commands and hides legacy duplicate commands", async () => {
     const help = (await bin(["--help"])).stdout;
     for (const name of ["create-agent", "channel-configure", "set-instructions", "ig-automation"]) expect(help).not.toContain(name);
@@ -80,15 +105,14 @@ describe("installed-style executable", () => {
       { args: ["channels", "disable", AGENT, "email"], method: "POST", suffix: "/channels/email/disable" },
     ];
     for (const row of cases) {
-      const result = await bin(["--json", ...row.args], row.stdin ?? "", { AGENTKIT_SESSION_TOKEN: "session", AGENTKIT_API_KEY: "unused-key" });
+      const result = await bin(["--json", ...row.args], row.stdin ?? "", { AGENTKIT_SESSION_TOKEN: "session" });
       expect(result.code, `${row.args.join(" ")}: ${result.stderr}`).toBe(0);
       const request = requests.at(-1)!;
-      const inboxRead = row.method === "GET" && row.suffix.startsWith("/emails");
-      expect(request).toMatchObject({ method: row.method, url: `/api/v2/agents/${AGENT}${row.suffix}`, auth: inboxRead ? "Bearer unused-key" : "Bearer session" });
+      expect(request).toMatchObject({ method: row.method, url: `/api/v2/agents/${AGENT}${row.suffix}`, auth: "Bearer session" });
       expect(request.body ? JSON.parse(request.body) : undefined).toEqual(row.body);
     }
   });
-  it("rejects unsafe email inputs and key-only access without making requests", async () => {
+  it("rejects unsafe email inputs and key-only setup access without making requests", async () => {
     const cases = [
       ["emails", "list", AGENT, "--status", "wrong"], ["emails", "list", AGENT, "--since", "yesterday"],
       ["emails", "list", AGENT, "--limit", "101"], ["emails", "list", AGENT, "--cursor", ""],
@@ -101,6 +125,24 @@ describe("installed-style executable", () => {
     for (const args of cases) expect((await bin(args, "", { AGENTKIT_SESSION_TOKEN: "session" })).code).toBe(1);
     const keyOnly = await bin(["email", "settings", AGENT], "", { AGENTKIT_API_KEY: "key" });
     expect(JSON.parse(keyOnly.stderr).error.code).toBe("AUTH_SESSION_REQUIRED"); expect(requests).toHaveLength(0);
+  });
+  it("uses the saved workspace key for reviewed replies and discards even when a saved session expired", async () => {
+    expect((await bin(["init", "--with-token"], "key")).code).toBe(0);
+    expect((await bin(["init", "--with-session-token"], "expired-session")).code).toBe(0);
+    respond = res => res.end(JSON.stringify({ data: { id: "draft", revision: "2" }, status: "sent" }));
+    const edited = await bin(["emails", "drafts", "edit", AGENT, "draft", "--body-file", "-", "--expected-revision", "1"], "Reviewed reply\n");
+    expect(edited.code, edited.stderr).toBe(0);
+    expect(requests.at(-1)).toMatchObject({ method: "PATCH", url: `/api/v2/agents/${AGENT}/emails/drafts/draft`, auth: "Bearer key" });
+    expect(JSON.parse(requests.at(-1)!.body)).toEqual({ bodyText: "Reviewed reply\n", expectedRevision: "1" });
+    const sent = await bin(["emails", "send", AGENT, "draft", "--expected-revision", "2"]);
+    expect(sent.code, sent.stderr).toBe(0);
+    expect(requests.at(-1)).toMatchObject({ method: "POST", url: `/api/v2/agents/${AGENT}/emails/drafts/draft/send`, auth: "Bearer key" });
+    expect(JSON.parse(requests.at(-1)!.body)).toEqual({ expectedRevision: "2" });
+    respond = res => res.end(JSON.stringify({ data: { id: "thread" }, status: "discarded" }));
+    const discarded = await bin(["emails", "discard", AGENT, "thread", "--inbound-message-id", "message", "--draft-id", "draft"]);
+    expect(discarded.code, discarded.stderr).toBe(0);
+    expect(requests.at(-1)).toMatchObject({ method: "POST", url: `/api/v2/agents/${AGENT}/emails/thread/discard`, auth: "Bearer key" });
+    expect(JSON.parse(requests.at(-1)!.body)).toEqual({ inboundMessageId: "message", draftId: "draft", draftEditedAt: null });
   });
   it("keeps delivery uncertainty and stale revisions distinct from success without retrying", async () => {
     for (const state of ["unknown", "unresolved", "conflict", "ignored", "channel_disabled"]) {

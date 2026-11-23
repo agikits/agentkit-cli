@@ -3,8 +3,8 @@
 ## Supported versions
 
 Security fixes target the latest released version of the SDK, CLI and MCP package.
-This release candidate has not been published. Use the candidate's exact version
-when reporting a problem.
+Releases are published on npm as `@agikits/agentkit`. Include the exact version
+(`agentkit --version`) when reporting a problem.
 
 ## Report a vulnerability
 

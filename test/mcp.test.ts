@@ -194,3 +194,22 @@ it.each([true, false])("stdio completes an authorized read against HTTP, modern=
     await fs.rm(dir, { recursive: true, force: true });
   }
 });
+
+it("lists every allowed agent case-insensitively without exposing workspace paging or settings", async () => {
+  const { connect, calls } = setup();
+  const { client } = await connect("tenant-a");
+  const listed = await client.callTool({ name: "agents_list", arguments: {} });
+  expect(listed.structuredContent).toEqual({ data: { data: [{ id: A, name: "[REDACTED]" }], pagination: { cursor: null, hasMore: false } } });
+  expect(calls.map(call => new URL(call.url).pathname)).toEqual([`/api/v2/agents/${A}`]);
+  const upper = await client.callTool({ name: "agents_get", arguments: { agentId: A.toUpperCase() } });
+  expect(upper.isError).not.toBe(true);
+});
+
+it("reads conversations from every source by default and keeps read errors free of write warnings", async () => {
+  const { connect, calls } = setup();
+  const { client } = await connect("tenant-a");
+  await client.callTool({ name: "conversations_get", arguments: { agentId: A, conversationId: CONVERSATION } });
+  expect(new URL(calls[0]!.url).searchParams.get("source")).toBe("all");
+  const missing = await client.callTool({ name: "conversations_get", arguments: { agentId: A, conversationId: "missing" } });
+  expect(JSON.stringify(missing)).not.toContain("write");
+});

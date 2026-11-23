@@ -22,13 +22,18 @@ Fixtures use synthetic account metadata and validate representative requests/res
 coverage plus a spec fixture is not proof of live runtime parity. Authenticated
 live acceptance remains a separate opt-in release gate.
 
-The 2026-10-12 observation found all 75 published paths and every component
-matching the specification rendered from product commit
-`60b92034dd4ad2246b9f749937e24a492ae3c467`. All five imported source modules
-were checked against that commit. The previous 35-path baseline was stale.
-The only change from the client snapshot was the channel configuration
-description documenting WhatsApp access on eligible plans. Requests, responses,
-security declarations and TypeScript type definitions did not change.
+The 2026-10-15 observation found the entire published specification, including all
+75 paths and every component, matching the reviewed snapshot. All five imported
+source modules at product commit `863df61169ffb9f22879ba02e3505d5dba823a97`
+match previously reviewed source `642eac92ecc8b3ff4d6a923cf153fe996b9e18da`.
+The change from the 2026-10-12 deployed baseline is the two draft edit/send
+operations accepting account API keys alongside user sessions, with an optional
+session-mode header. Request and response schemas did not change.
+
+The 2026-11-22 observation, after product commit `679686ff` (PR #804) deployed,
+found the published specification matching the snapshot again. Its only change is
+that thread discard and restore accept account API keys alongside user sessions,
+which also shortens the session-only description on the other email writes.
 
 `deploymentStatus: "schema-observed"` records the published specification, not
 successful authenticated calls. `authenticatedRuntimeAcceptance: "pending"`

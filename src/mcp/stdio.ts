@@ -6,7 +6,7 @@ import { runStdio, type StdioOptions } from "./run-stdio.js";
 const program = new Command().name("agentkit-mcp").version(VERSION)
   .description("Agentkit MCP over stdio. Read-only by default; supports MCP 2026-07-28 and legacy clients.")
   .option("--url <origin>", "Explicit API origin")
-  .option("--allow-writes", "Expose agent creation, text knowledge and instruction updates")
+  .option("--allow-writes", "Expose text knowledge, instruction updates and agent creation (without --agent)")
   .option("--agent <uuid...>", "Restrict this connection to specified agent UUIDs");
 program.parse();
 const options = program.opts<StdioOptions>();

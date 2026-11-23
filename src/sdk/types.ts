@@ -30,6 +30,7 @@ export type CreateFileUploadUrlsRequest = Schemas["CreateFileUploadUrlsRequest"]
 export type FileUploadUrls = Schemas["FileUploadUrls"];
 export type RegisterFilesRequest = Schemas["RegisterFilesRequest"];
 export type TrainStatus = Schemas["TrainingStatus"];
+export type TrainingJob = Schemas["TrainingJob"];
 export type Contact = Schemas["Contact"];
 export type CreateContactRequest = Schemas["UpsertContactRequest"];
 export type ImportContactsRequest = Schemas["ImportContactsRequest"];
@@ -100,7 +101,7 @@ export type ChatRequest = Omit<Schemas["ChatRequest"], "stream" | "channel"> &
   Partial<Pick<Schemas["ChatRequest"], "channel">>;
 export type PendingToolCall = NonNullable<ChatResult["pendingToolCall"]>;
 /** all includes API, API Playground, and widget chats, not other channels. */
-export type ConversationSource = "api_v2" | "playground" | "widget" | "all";
+export type ConversationSource = "api_v2" | "playground" | "widget" | "instagram" | "all";
 export type ListOptions = { limit?: number; cursor?: string; source?: ConversationSource };
 export type StreamMetadata = Omit<ChatMetadata, "userMessageId"> & { type: "message-metadata"; messageId: string | null };
 export type StreamToolCall = PendingToolCall & { type: "tool-call" };
