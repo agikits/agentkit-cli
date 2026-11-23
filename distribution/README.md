@@ -21,16 +21,18 @@ lockfile identity in sync. Re-run the tests and package verification there.
 
 [Trusted publishing](https://docs.npmjs.com/trusted-publishers/) requires npm
 11.5.1 or newer and Node 22.14.0 or newer. This workflow uses Node 24 and npm 11 on
-GitHub-hosted runners. It defaults to a dry run. Configure the `npm-release`
+GitHub-hosted runners (npm 11.21 for `npm stage`). It defaults to a dry run. Configure the `npm-release`
 environment with required reviewers and tag restrictions. Add a trusted publisher
 for the exact repository, `release.yml` workflow and `npm-release` environment.
-Choose direct `npm publish` permission explicitly in npm's trusted-publisher form.
-Use staged publishing instead if maintainers prefer approval on npm.
+The publisher has `npm stage publish` permission, so every release also needs a
+maintainer's 2FA approval on npmjs.com.
 
 The package owner must authenticate for initial package setup if npm does not
 allow configuring trusted publishing before the first version. Never add a
 publishing token to this repository. After package setup, dispatch `publish`
-against `v<package-version>`. The workflow checks identity and publishes with the
+against `v<package-version>`. The workflow checks identity and stages the version
+(`npm stage publish`); a maintainer approves it on npmjs.com with 2FA, which
+publishes it with the
 `dist_tag` input (`latest` by default; choose `beta` for a version that has not
 passed real-client checks). Public repositories and
 packages receive OIDC provenance automatically.
