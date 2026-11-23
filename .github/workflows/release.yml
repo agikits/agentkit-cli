@@ -8,6 +8,12 @@ on:
         options: [dry-run, publish]
         default: dry-run
         required: true
+      dist_tag:
+        description: npm dist-tag for publish
+        type: choice
+        options: [latest, beta]
+        default: latest
+        required: true
 permissions:
   contents: read
 concurrency:
@@ -65,4 +71,6 @@ jobs:
           JS
       - run: npm ci
       - run: npm run build
-      - run: npm publish --ignore-scripts --access public --tag beta
+      - run: npm publish --ignore-scripts --access public --tag "$DIST_TAG"
+        env:
+          DIST_TAG: ${{ inputs.dist_tag }}
