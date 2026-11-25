@@ -519,7 +519,7 @@ describe("installed-style executable", () => {
   });
   it("preserves filters and pagination for grouped and legacy conversation reads", async () => {
     respond = res => res.end(JSON.stringify({ data: [], pagination: { cursor: null, hasMore: false, total: 0 } }));
-    for (const source of ["playground", "widget", "all"]) {
+    for (const source of ["playground", "widget", "center_stage", "help_page", "all"]) {
       for (const command of [["conversations", "list"], ["conversations"]]) {
         const result = await bin([...command, AGENT, "--source", source, "--limit", "1", "--cursor", "next page", "--key", "test-key", "--json"]);
         expect(result.code, result.stderr).toBe(0);
@@ -529,6 +529,30 @@ describe("installed-style executable", () => {
         expect(requests.at(-1)!.auth).toBe("Bearer test-key");
       }
     }
+    const unread = await bin(["conversations", "list", AGENT, "--source", "all", "--unread", "--key", "test-key", "--json"]);
+    expect(unread.code, unread.stderr).toBe(0);
+    expect(Object.fromEntries(new URL(requests.at(-1)!.url!, url).searchParams)).toEqual({ source: "all", unread: "true" });
+
+    const read = await bin(["conversations", "export", AGENT, "--source", "center_stage", "--read", "--key", "test-key", "--json"]);
+    expect(read.code, read.stderr).toBe(0);
+    expect(Object.fromEntries(new URL(requests.at(-1)!.url!, url).searchParams)).toEqual({ source: "center_stage", unread: "false" });
+
+    const beforeConflict = requests.length;
+    const conflict = await bin(["conversations", "list", AGENT, "--unread", "--read", "--key", "test-key"]);
+    expect(conflict.code).toBe(1);
+    expect(requests).toHaveLength(beforeConflict);
+  });
+  it("reports a clear network error instead of a bare fetch failed", async () => {
+    const client = new (await import("../src/sdk/client.js")).AgentkitClient({
+      baseUrl: "https://agentkit.ai",
+      key: "test-key",
+      fetch: async () => { throw new TypeError("fetch failed"); },
+    });
+    await expect(client.listAgents()).rejects.toMatchObject({
+      code: "NETWORK_ERROR",
+      message: "Cannot reach https://agentkit.ai (network blocked or offline?).",
+      status: 0,
+    });
   });
   it("preserves grouped export filters and source-list pagination", async () => {
     respond = res => res.end(JSON.stringify({ data: [], pagination: { cursor: null, hasMore: false, total: 0 } }));

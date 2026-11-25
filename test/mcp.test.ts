@@ -155,14 +155,17 @@ it.each([true, false])("installed stdio entry speaks modern=%s with protocol-onl
 it("reads the reference ID returned by conversation listing", async () => {
   const { connect, calls } = setup();
   const { client } = await connect("tenant-a");
-  const listed = await client.callTool({ name: "conversations_list", arguments: { agentId: A } });
+  const listed = await client.callTool({ name: "conversations_list", arguments: { agentId: A, source: "center_stage", unread: true } });
   const data = listed.structuredContent as { data: { data: { id: string }[] } };
   const conversationId = data.data.data[0]!.id;
   expect(conversationId).toBe(CONVERSATION);
-  const detail = await client.callTool({ name: "conversations_get", arguments: { agentId: A, conversationId } });
+  const detail = await client.callTool({ name: "conversations_get", arguments: { agentId: A, conversationId, source: "help_page" } });
   expect(detail.isError).not.toBe(true);
   expect(JSON.stringify(detail)).toContain(CONVERSATION);
   expect(calls).toHaveLength(2);
+  expect(calls[0]!.url).toContain("source=center_stage");
+  expect(calls[0]!.url).toContain("unread=true");
+  expect(calls[1]!.url).toContain("source=help_page");
 });
 
 it.each([true, false])("stdio completes an authorized read against HTTP, modern=%s", async modern => {
@@ -212,4 +215,132 @@ it("reads conversations from every source by default and keeps read errors free 
   expect(new URL(calls[0]!.url).searchParams.get("source")).toBe("all");
   const missing = await client.callTool({ name: "conversations_get", arguments: { agentId: A, conversationId: "missing" } });
   expect(JSON.stringify(missing)).not.toContain("write");
+});
+
+const OAUTH_SCOPES = { read: "read", write: "write", delete: "delete", export: "export" } as const;
+
+function hosted(granted: readonly string[], extra: Partial<Parameters<typeof createAgentkitHttpHandler>[0]> = {}) {
+  const calls: string[] = [];
+  const handler = createAgentkitHttpHandler({ resourceUrl: RESOURCE, authorizationServers: ["https://auth.agentkit.test"], scopes: OAUTH_SCOPES,
+    authorize: async token => token !== "grant" ? null : {
+      subject: "user", workspaceId: "workspace", expiresAt: Date.now() / 1000 + 3600, scopes: granted,
+      createClient: signal => new AgentkitClient({ key: "unused", signal, fetch: async input => {
+        calls.push(String(input));
+        return Response.json({ id: A, name: "Hosted" });
+      } }),
+    }, ...extra });
+  const post = (body: unknown, headers: Record<string, string> = {}) => handler.fetch(new Request(RESOURCE, { method: "POST",
+    headers: { authorization: "Bearer grant", "content-type": "application/json", accept: "application/json, text/event-stream", ...headers }, body: JSON.stringify(body) }));
+  return { handler, calls, post };
+}
+
+it("takes scope names from the host and advertises them in metadata and the 401", async () => {
+  const { handler } = hosted(["read"]);
+  const metadata = await (await handler.fetch(new Request("https://mcp.agentkit.test/.well-known/oauth-protected-resource/mcp"))).json();
+  expect(metadata.scopes_supported).toEqual(["read", "write", "delete", "export"]);
+  const unauthenticated = await handler.fetch(new Request(RESOURCE, { method: "POST" }));
+  expect(unauthenticated.status).toBe(401);
+  expect(unauthenticated.headers.get("www-authenticate")).toBe(
+    'Bearer scope="read write", resource_metadata="https://mcp.agentkit.test/.well-known/oauth-protected-resource/mcp"');
+  // A presented token that fails validation is told so (RFC 6750 section 3.1); no token gets no error code.
+  const invalid = 'Bearer error="invalid_token", scope="read write", resource_metadata="https://mcp.agentkit.test/.well-known/oauth-protected-resource/mcp"';
+  const revoked = await hosted(["read"], { authorize: async () => null }).post({ jsonrpc: "2.0", id: 1, method: "tools/list" });
+  expect(revoked.status).toBe(401);
+  expect(revoked.headers.get("www-authenticate")).toBe(invalid);
+  const expired = await hosted(["read"], { authorize: async () => ({ subject: "user", workspaceId: "workspace", expiresAt: Date.now() / 1000 - 1,
+    scopes: ["read"], createClient: () => { throw new Error("unused"); } }) }).post({ jsonrpc: "2.0", id: 1, method: "tools/list" });
+  expect(expired.headers.get("www-authenticate")).toBe(invalid);
+  const malformed = await handler.fetch(new Request(RESOURCE, { method: "POST", headers: { authorization: "Bearer not a token" } }));
+  expect(malformed.status).toBe(401);
+  expect(malformed.headers.get("www-authenticate")).toBe(invalid);
+  const basic = await handler.fetch(new Request(RESOURCE, { method: "POST", headers: { authorization: "Basic dXNlcjpwYXNz" } }));
+  expect(basic.headers.get("www-authenticate")).toBe(
+    'Bearer scope="read write", resource_metadata="https://mcp.agentkit.test/.well-known/oauth-protected-resource/mcp"');
+  const client = new Client({ name: "scope-test", version: "1" });
+  clients.push(client);
+  await client.connect(new StreamableHTTPClientTransport(new URL(RESOURCE), { requestInit: { headers: { authorization: "Bearer grant" } },
+    fetch: async (input, init) => handler.fetch(new Request(input, init)) }));
+  const tools = await client.listTools();
+  expect(tools.tools).toHaveLength(11);
+  expect(tools.tools.every(tool => JSON.stringify(tool._meta).includes('"read"'))).toBe(true);
+});
+
+it("answers a missing scope with a 403 insufficient_scope challenge before reaching the API", async () => {
+  const withoutRead = hosted(["write"]);
+  const refused = await withoutRead.post({ jsonrpc: "2.0", id: 1, method: "tools/list" });
+  expect(refused.status).toBe(403);
+  expect(refused.headers.get("www-authenticate")).toContain('error="insufficient_scope", scope="read"');
+  const readOnly = hosted(["read"]);
+  const write = await readOnly.post({ jsonrpc: "2.0", id: 1, method: "tools/call",
+    params: { name: "settings_instructions_update", arguments: { agentId: A, instructionsPrompt: "x" } } });
+  expect(write.status).toBe(403);
+  expect(await write.json()).toEqual({ error: "insufficient_scope", required: "write" });
+  expect(write.headers.get("www-authenticate")).toBe(
+    'Bearer error="insufficient_scope", scope="write", resource_metadata="https://mcp.agentkit.test/.well-known/oauth-protected-resource/mcp"');
+  expect(readOnly.calls).toHaveLength(0);
+  // The body the handler read to check the scope still reaches the MCP server intact.
+  const read = await readOnly.post({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "agents_get", arguments: { agentId: A } } },
+    { "mcp-protocol-version": "2025-06-18" });
+  expect(read.status).toBe(200);
+  expect(await read.text()).toContain("Hosted");
+  expect(readOnly.calls).toEqual([`https://agentkit.ai/api/v2/agents/${A}`]);
+});
+
+it("answers CORS preflight and accepts only the allowed origins", async () => {
+  const { handler } = hosted(["read"], { allowedOrigins: ["https://inspector.test"] });
+  const preflight = await handler.fetch(new Request(RESOURCE, { method: "OPTIONS",
+    headers: { origin: "https://inspector.test", "access-control-request-method": "POST", "access-control-request-headers": "authorization,content-type" } }));
+  expect(preflight.status).toBe(204);
+  expect(preflight.headers.get("access-control-allow-origin")).toBe("https://inspector.test");
+  expect(preflight.headers.get("access-control-allow-methods")).toContain("POST");
+  expect(preflight.headers.get("access-control-allow-headers")).toContain("authorization");
+  const challenged = await handler.fetch(new Request(RESOURCE, { method: "POST", headers: { origin: "https://inspector.test" } }));
+  expect(challenged.status).toBe(401);
+  expect(challenged.headers.get("access-control-allow-origin")).toBe("https://inspector.test");
+  expect(challenged.headers.get("access-control-expose-headers")).toContain("www-authenticate");
+  for (const method of ["OPTIONS", "POST"]) {
+    expect((await handler.fetch(new Request(RESOURCE, { method, headers: { origin: "https://attacker.test" } }))).status).toBe(403);
+  }
+  const any = hosted(["read"], { allowedOrigins: "*" });
+  const anyOrigin = await any.post({ jsonrpc: "2.0", id: 1, method: "tools/list" }, { origin: "https://anywhere.test", "mcp-protocol-version": "2025-06-18" });
+  expect(anyOrigin.status).toBe(200);
+  expect(anyOrigin.headers.get("access-control-allow-origin")).toBe("*");
+  // No Origin header: unchanged, and no CORS headers are added.
+  expect((await any.post({ jsonrpc: "2.0", id: 1, method: "tools/list" }, { "mcp-protocol-version": "2025-06-18" })).headers.has("access-control-allow-origin")).toBe(false);
+});
+
+it("accepts an HTTP issuer only for a loopback resource and can leave metadata to the host", async () => {
+  const authorize = async () => null;
+  expect(() => createAgentkitHttpHandler({ resourceUrl: RESOURCE, authorizationServers: ["http://localhost:3000"], authorize })).toThrow(/HTTPS issuers/);
+  expect(() => createAgentkitHttpHandler({ resourceUrl: "http://localhost:3000/api/mcp", authorizationServers: ["http://auth.agentkit.test"], authorize })).toThrow(/HTTPS issuers/);
+  const local = createAgentkitHttpHandler({ resourceUrl: "http://localhost:3000/api/mcp", authorizationServers: ["http://localhost:3000"], authorize, serveMetadata: false });
+  expect((await local.fetch(new Request("http://localhost:3000/.well-known/oauth-protected-resource/api/mcp"))).status).toBe(404);
+  const challenged = await local.fetch(new Request("http://localhost:3000/api/mcp", { method: "POST" }));
+  expect(challenged.headers.get("www-authenticate")).toContain('resource_metadata="http://localhost:3000/.well-known/oauth-protected-resource/api/mcp"');
+});
+
+it("refuses JSON-RPC batches only after authentication and admission", async () => {
+  const { handler, post, calls } = hosted(["read"]);
+  // A stream that never closes: any attempt to read it before auth would hang.
+  const unauthedReq = new Request(RESOURCE, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: new ReadableStream<Uint8Array>({ start() {} }),
+    ...({ duplex: "half" } as object),
+  });
+  const unauthed = await handler.fetch(unauthedReq);
+  expect(unauthed.status).toBe(401);
+  expect(unauthed.headers.get("www-authenticate")).toContain('scope="read write"');
+  expect(unauthedReq.bodyUsed).toBe(false);
+
+  // Authenticated batch is refused with 400 JSON-RPC -32600 before dispatching tools.
+  const batch = await post([
+    { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "agents_get", arguments: { agentId: A } } },
+    { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "agents_get", arguments: { agentId: A } } },
+  ]);
+  expect(batch.status).toBe(400);
+  expect(await batch.json()).toEqual({
+    jsonrpc: "2.0", id: null,
+    error: { code: -32600, message: "JSON-RPC batches are not supported. Send one message per request." },
+  });
+  expect(calls).toHaveLength(0);
 });

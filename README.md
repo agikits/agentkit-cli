@@ -297,8 +297,24 @@ Do not use a general Supabase user token as an MCP-scoped token. Tool visibility
 does not reduce the database permissions attached to such a token. The HTTP
 handler accepts only POST at the canonical resource URL and validates Host and
 Origin. It publishes OAuth protected-resource metadata without claiming to
-implement an authorization server. Browser clients from other origins need an
-explicitly reviewed hosting integration.
+implement an authorization server.
+
+Hosting options added in 0.4.0:
+
+- `scopes` names the scopes the host's tokens carry, for example
+  `{ read: "read", write: "write", delete: "delete", export: "export" }`. The
+  default is `agentkit:read` and `agentkit:write`. A request whose token lacks
+  the scope a tool needs gets 403 with an `insufficient_scope` challenge.
+- `allowedOrigins` lists browser origins that may call the handler, or `"*"` for
+  any. These get CORS headers and an `OPTIONS` preflight answer. The handler
+  reads only the `Authorization` header and never cookies, so `"*"` does not
+  expose a signed-in browser session.
+- `serveMetadata: false` leaves the protected-resource metadata document to the
+  host. The 401 challenge still points at its URL.
+- An `http:` authorization server is accepted only for an `http:` resource on a
+  loopback host.
+- The `AgentkitClient` returned by `createClient` accepts `fetch`, so a host can
+  dispatch API calls in-process instead of over the network.
 
 Local [Codex and Cursor plugin files](distribution/README.md) are included.
 Registry and marketplace submissions require published artifacts and real-client

@@ -100,9 +100,9 @@ export type ChatMetadata = ChatResult["metadata"];
 export type ChatRequest = Omit<Schemas["ChatRequest"], "stream" | "channel"> &
   Partial<Pick<Schemas["ChatRequest"], "channel">>;
 export type PendingToolCall = NonNullable<ChatResult["pendingToolCall"]>;
-/** all includes API, API Playground, widget and Instagram chats, not Center Stage or email. */
-export type ConversationSource = "api_v2" | "playground" | "widget" | "instagram" | "all";
-export type ListOptions = { limit?: number; cursor?: string; source?: ConversationSource };
+/** all includes API, API Playground, widget, Instagram, Center Stage and Help Page chats (not email threads). */
+export type ConversationSource = "api_v2" | "playground" | "widget" | "instagram" | "center_stage" | "help_page" | "all";
+export type ListOptions = { limit?: number; cursor?: string; source?: ConversationSource; unread?: boolean };
 export type StreamMetadata = Omit<ChatMetadata, "userMessageId"> & { type: "message-metadata"; messageId: string | null };
 export type StreamToolCall = PendingToolCall & { type: "tool-call" };
 export type StreamError = { type: "error"; error: { code: string } };

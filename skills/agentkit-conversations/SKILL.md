@@ -7,8 +7,13 @@ description: Inspect Agentkit API/widget conversations, test replies, give feedb
 
 Use `conversations list`, `get`, or `export` with `--json`. `list` and `export`
 default to `api_v2`; `get` defaults to `all`. `--source playground` selects API
-tests, `--source widget` widget chats, `--source instagram` Instagram DMs, and
-`--source all` all four. Center Stage and email threads are not included.
+tests, `--source widget` widget chats, `--source instagram` Instagram DMs,
+`--source center_stage` Center Stage chats, `--source help_page` Help Page
+chats, and `--source all` all six. Pass `--unread` (or `--read`) on `list` or
+`export` to filter by the shared Chat Logs unread flag; API reads never mark
+conversations read. Email threads live separately under
+`agentkit emails list <agent>` and `agentkit emails get <agent> <threadId>`
+(read-only; never marks threads read).
 Export pages contain at most 20 conversations. Follow cursors and keep personal
 content out of shared reports and fixtures.
 
