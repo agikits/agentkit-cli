@@ -8,7 +8,7 @@ const root = process.cwd();
 const target = path.resolve(destination);
 if (target === root || target.startsWith(`${root}${path.sep}`)) throw new Error('Export outside the source package to avoid recursive copies.');
 const files = ['src', 'scripts', 'test', 'contracts', 'ci', 'distribution', 'package.json', 'package-lock.json', 'tsconfig.json', 'tsconfig.test.json', 'vitest.config.ts', 'README.md', 'MIGRATION.md', 'CHANGELOG.md', 'LICENSE', 'SECURITY.md'];
-const skills = ['agentkit', 'agentkit-knowledge', 'agentkit-conversations', 'agentkit-channels', 'agentkit-widgets', 'agentkit-backstage'];
+const skills = ['agentkit', 'agentkit-knowledge', 'agentkit-conversations', 'agentkit-channels'];
 const selected = [...files, ...skills.map(skill => `skills/${skill}`)];
 let internalIds = [];
 try {

@@ -85,7 +85,7 @@ try {
   assert.equal(pkg.bin?.agentkit, './dist/cli/index.js');
   assert.equal(pkg.bin?.['agentkit-mcp'], './dist/mcp/stdio.js');
   for (const file of packed.files) {
-    assert(/^(dist\/|skills\/(agentkit|agentkit-knowledge|agentkit-conversations|agentkit-channels|agentkit-widgets|agentkit-backstage)\/|contracts\/|distribution\/|README\.md$|MIGRATION\.md$|CHANGELOG\.md$|LICENSE$|SECURITY\.md$|package\.json$)/.test(file.path), `Unexpected packed path: ${file.path}`);
+    assert(/^(dist\/|skills\/(agentkit|agentkit-knowledge|agentkit-conversations|agentkit-channels)\/|contracts\/|distribution\/|README\.md$|MIGRATION\.md$|CHANGELOG\.md$|LICENSE$|SECURITY\.md$|package\.json$)/.test(file.path), `Unexpected packed path: ${file.path}`);
     assert(!file.path.split('/').some(segment => /^\.env/i.test(segment) || ['.npmrc', 'auth.json', 'config.json', 'projects.json'].includes(segment)), `Private packed path: ${file.path}`);
     assert(!file.path.endsWith('.map'), 'Source maps must not ship without sources');
   }

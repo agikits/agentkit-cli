@@ -10,7 +10,8 @@ function makeProjectOptional(command: Command): void {
 
   const requiredTail = tail.filter(arg => arg.required);
   const usage = tail.map(arg => arg.required ? `<${arg.name()}>` : `[${arg.name()}]`);
-  command.usage(["[options]", "[project]", ...usage, ...(command.commands.length ? ["[command]"] : [])].join(" "));
+  if (command.createHelp().visibleCommands(command).length) usage.push("[command]");
+  command.usage(["[options]", "[project]", ...usage].join(" "));
   // Assign positionals after Commander parses the options. The leading project
   // can be omitted even when later arguments are required.
   for (const arg of command.registeredArguments) arg.required = false;
