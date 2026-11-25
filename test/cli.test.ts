@@ -811,3 +811,45 @@ describe("installed-style executable", () => {
   });
 
 });
+
+describe("source detail and partial edits", () => {
+  const doc = { id: "doc", title: "Support", sourceType: "qna_entry", content: "raw", questions: ["When?"], answer: "Always" };
+  const env = { AGENTKIT_API_KEY: "test-key" };
+  beforeEach(() => { respond = res => res.end(JSON.stringify({ data: doc })); });
+
+  it("reads the stored Q&A fields and keeps terminal controls out of multiline text", async () => {
+    expect((await bin(["sources", "get", AGENT, doc.id], "", env)).stdout).toBe("Support (qna_entry)\nQuestions:\nWhen?\nAnswer:\nAlways\n");
+    const text = { ...doc, sourceType: "web_page", content: "\u001b[31mfirst\u001b[0m\nsecond\u0007" };
+    respond = res => res.end(JSON.stringify({ data: text }));
+    expect((await bin(["get-source", AGENT, doc.id], "", env)).stdout).toBe("Support (web_page)\nfirst\nsecond \n");
+    expect(JSON.parse((await bin(["sources", "get", AGENT, doc.id, "--json"], "", env)).stdout)).toEqual(text);
+  });
+
+  it("uses the saved default for get and update and sends only the requested fields", async () => {
+    expect((await bin(["config", "set", "agent", AGENT])).code).toBe(0);
+    expect(JSON.parse((await bin(["sources", "get", doc.id, "--json"], "", env)).stdout)).toEqual(doc);
+    const result = await bin(["sources", "update", doc.id, "--title", "Times", "--question", "Q1", "Q2", "--question", "Q3", "--answer", "A", "--json"], "", env);
+    expect(result.code, result.stderr).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual(doc);
+    expect(requests.map(r => [r.method, r.url])).toEqual(["GET", "PATCH"].map(method => [method, `/api/v2/agents/${AGENT}/sources/doc`]));
+    expect(JSON.parse(requests[1]!.body)).toEqual({ title: "Times", questions: ["Q1", "Q2", "Q3"], answer: "A" });
+  });
+
+  it("accepts literal, file and stdin content without changing whitespace", async () => {
+    const content = "  line one\nline two\n";
+    const file = path.join(dir, "entry.txt");
+    await fs.writeFile(file, content);
+    for (const args of [["--content", content], ["--file", file], ["--file", "-"]]) {
+      const result = await bin(["update-source", AGENT, doc.id, ...args], content, env);
+      expect(result.code, result.stderr).toBe(0);
+      expect(JSON.parse(requests.at(-1)!.body)).toEqual({ content });
+    }
+  });
+
+  it.each([[], ["--answer", "a", "--content", "text"], ["--question", "q", "--file", "missing"],
+    ["--content", "text", "--file", "-"]])("rejects invalid patch %j before dispatch", async (...args) => {
+    const result = await bin(["sources", "update", AGENT, doc.id, ...args], "", env);
+    expect(result.code).toBe(1);
+    expect(requests).toHaveLength(0);
+  });
+});

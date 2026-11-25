@@ -7,7 +7,7 @@ Reviewed against the pinned specification in `contracts/provenance.json`. A comm
 | `POST /auth/device/code` | | `auth login --browser` |
 | `POST /auth/device/token` | | `auth login --browser` |
 | `DELETE /auth/key` | | `auth logout` |
-| `GET /me` | | `auth status` |
+| `GET /me` | `whoami` | `auth status` |
 | `GET /health` | `health` | `health` |
 | `GET /agents` | `listAgents` | `agents list` |
 | `POST /agents` | `createAgent` | `agents create` |
@@ -29,6 +29,8 @@ Reviewed against the pinned specification in `contracts/provenance.json`. A comm
 | `POST /agents/{agentId}/sources/url` | `addUrlSource` | `sources add-url` |
 | `POST /agents/{agentId}/sources/file/upload-url` | `createFileUploadUrls` | `sources file-upload-urls` |
 | `POST /agents/{agentId}/sources/file` | `registerFileSources` | `sources register-files` |
+| `GET /agents/{agentId}/sources/{documentId}` | `getSource` | `sources get` |
+| `PATCH /agents/{agentId}/sources/{documentId}` | `updateSource` | `sources update` |
 | `DELETE /agents/{agentId}/sources/{documentId}` | `deleteSource` | `sources delete` |
 | `GET /agents/{agentId}/contacts` | `listContacts` | `contacts list` |
 | `POST /agents/{agentId}/contacts` | `createContact` | `contacts upsert` |

@@ -1,74 +1,6 @@
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 // Generated from the pinned OpenAPI snapshot. Do not edit.
 export interface paths {
-    "/auth/device/code": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Start CLI browser sign-in */
-        post: operations["requestDeviceCode"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/device/token": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Poll for CLI browser approval and redeem the device code */
-        post: operations["redeemDeviceCode"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/key": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Revoke the calling API key, regardless of its scopes */
-        delete: operations["revokeCurrentKey"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get the calling credential's workspace and scopes */
-        get: operations["getCurrentCredential"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/agents/{agentId}/channels": {
         parameters: {
             query?: never;
@@ -941,6 +873,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/device/code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a CLI browser login
+         * @description Issues a device code for the CLI and a user code for the person to approve at the verification URL. No authentication. Limited to 10 codes per IP address per hour.
+         */
+        post: operations["createDeviceCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/device/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Poll for the API key of a CLI browser login
+         * @description Poll at the interval returned with the device code. Once the person approves, the response carries a new API key exactly once; the raw key is never stored. No authentication.
+         */
+        post: operations["redeemDeviceCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke the calling API key
+         * @description Deletes the API key that authenticates the request. Any scope is enough. A user-session caller gets 400 `not_an_api_key`.
+         */
+        delete: operations["revokeCurrentApiKey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Describe the calling credential
+         * @description Returns the workspace and the credential behind the request. Any scope is enough. For a user session, `account` is set only when the user belongs to exactly one workspace.
+         */
+        get: operations["getCurrentCredential"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -1320,7 +1332,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Read a training source
+         * @description Requires read scope. Q&A entries also include their parsed questions and answer.
+         */
+        get: operations["getSource"];
         put?: never;
         post?: never;
         /**
@@ -1330,7 +1346,11 @@ export interface paths {
         delete: operations["deleteSource"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Edit a training source
+         * @description Requires write scope. Send at least one field for the stored source type. Q&A entries accept title, questions and answer. Other sources accept title and content. The stored content, including serialized Q&A, is limited to 262,144 UTF-8 bytes. A successful edit replaces the source and its embeddings together.
+         */
+        patch: operations["updateSource"];
         trace?: never;
     };
     "/agents/{agentId}/contacts": {
@@ -2857,6 +2877,72 @@ export interface components {
                 }[];
             } | null;
         };
+        DeviceCodeRequest: {
+            /** @description A label for the device, usually its hostname. Trimmed and cut to 64 printable characters. */
+            client_name: string;
+        };
+        DeviceCode: {
+            /** @description Opaque. Keep it secret. */
+            device_code: string;
+            /** @example BCDF-GHJK */
+            user_code: string;
+            /** Format: uri */
+            verification_uri: string;
+            /** Format: uri */
+            verification_uri_complete: string;
+            /** @description Seconds. */
+            expires_in: number;
+            /** @description Seconds to wait between polls. */
+            interval: number;
+        };
+        DeviceTokenRequest: {
+            device_code: string;
+        };
+        DeviceToken: {
+            api_key: string;
+            key: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+                /** @enum {string} */
+                source: "cli";
+                scopes: ("read" | "write" | "delete" | "export")[];
+            };
+            account: {
+                /** Format: uuid */
+                id: string;
+                slug: string | null;
+                name: string;
+            };
+        };
+        DeviceTokenError: {
+            /** @enum {string} */
+            error: "authorization_pending" | "slow_down" | "expired_token" | "access_denied" | "invalid_grant";
+            /** @description Present with `slow_down`: the new polling interval. */
+            interval?: number;
+        };
+        CurrentCredential: {
+            account: {
+                /** Format: uuid */
+                id: string;
+                slug: string | null;
+                name: string;
+            } | null;
+            credential: {
+                /** @enum {string} */
+                source: "manual" | "cli" | "session";
+                /** Format: uuid */
+                key_id: string | null;
+                name: string | null;
+                scopes: ("read" | "write" | "delete" | "export")[];
+            };
+        };
+        InsufficientScope: {
+            /** @enum {string} */
+            error: "insufficient_scope";
+            /** @enum {string} */
+            required: "read" | "write" | "delete" | "export";
+        };
         Error: {
             error: {
                 /** @enum {string} */
@@ -2959,6 +3045,8 @@ export interface components {
             userId: string | null;
             source: string | null;
             status: string;
+            /** @description Shared unread state from Chat Logs. API reads leave this state intact. */
+            unread: boolean;
         };
         Message: {
             id: string;
@@ -2978,6 +3066,8 @@ export interface components {
             userId: string | null;
             source: string | null;
             status: string;
+            /** @description Shared unread state from Chat Logs. API reads leave this state intact. */
+            unread: boolean;
             messages: components["schemas"]["Message"][];
         };
         ConversationList: {
@@ -3034,6 +3124,30 @@ export interface components {
             createdAt: number | null;
             lastCrawledAt: number | null;
             sourceMetadata: components["schemas"]["JsonValue"];
+        };
+        SourceDetailResponse: {
+            data: {
+                /** Format: uuid */
+                id: string;
+                title: string;
+                sourceType: string;
+                createdAt: number | null;
+                lastCrawledAt: number | null;
+                sourceMetadata: components["schemas"]["JsonValue"];
+                content: string;
+                questions?: string[];
+                answer?: string;
+            };
+        };
+        UpdateSourceRequest: {
+            title?: string;
+            /** @description Must contain non-whitespace text and encode to at most 262,144 UTF-8 bytes. */
+            content?: string;
+        } | {
+            title?: string;
+            questions?: string[];
+            /** @description Must contain non-whitespace text and encode to at most 262,144 UTF-8 bytes. */
+            answer?: string;
         };
         SourceList: {
             data: components["schemas"]["Source"][];
@@ -3473,57 +3587,6 @@ export interface components {
             conversation_starters: components["schemas"]["InstagramConversationStarters"];
             menu: components["schemas"]["InstagramMenu"];
         };
-        /** @enum {string} */
-        ApiKeyScope: "read" | "write" | "delete" | "export";
-        InsufficientScope: {
-            /** @constant */
-            error: "insufficient_scope";
-            required: components["schemas"]["ApiKeyScope"];
-        };
-        CredentialAccount: {
-            /** Format: uuid */
-            id: string;
-            slug: string;
-            name: string;
-        };
-        DeviceCodeRequest: {
-            client_name: string;
-        };
-        DeviceCode: {
-            device_code: string;
-            user_code: string;
-            /** Format: uri */
-            verification_uri: string;
-            /** Format: uri */
-            verification_uri_complete: string;
-            expires_in: number;
-            interval: number;
-        };
-        DeviceTokenRequest: {
-            device_code: string;
-        };
-        DeviceToken: {
-            api_key: string;
-            key: {
-                /** Format: uuid */
-                id: string;
-                name: string;
-                /** @constant */
-                source: "cli";
-                scopes: components["schemas"]["ApiKeyScope"][];
-            };
-            account: components["schemas"]["CredentialAccount"];
-        };
-        CurrentCredential: {
-            account: components["schemas"]["CredentialAccount"] | null;
-            credential: {
-                /** @enum {string} */
-                source: "manual" | "cli" | "session";
-                key_id: string | null;
-                name: string | null;
-                scopes: components["schemas"]["ApiKeyScope"][];
-            };
-        };
     };
     responses: {
         /** @description The request body, path value, or query value is invalid. */
@@ -3546,7 +3609,7 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description The workspace plan does not permit the request, a quota was reached, or the calling API key lacks a required scope. */
+        /** @description The workspace plan does not permit the request, a quota was reached, or the API key lacks the scope this operation needs. A missing scope answers with the flat `InsufficientScope` body instead of the error envelope. */
         Forbidden: {
             headers: {
                 "x-request-id": components["headers"]["RequestId"];
@@ -3576,7 +3639,7 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description The request conflicts with the current conversation or Instagram connection state. */
+        /** @description The request conflicts with the current resource state. For a concurrent source edit, read the latest source before retrying. */
         Conflict: {
             headers: {
                 "x-request-id": components["headers"]["RequestId"];
@@ -3596,10 +3659,14 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description The Backstage request was rate-limited or the concurrency limit was reached. */
+        /** @description A rate limit was exceeded. Every authenticated request counts against a per-credential limit of 300 requests per minute; chat and retry share 30 per minute per credential; source edits and URL, text and Q&A source creation share 60 per minute per agent; retraining allows 6 per hour per agent. These limits are the same on every plan, and `error.details.bucket` names the one that was exceeded (`general`, `chat`, `sources` or `training`). File upload URLs and Backstage requests have their own limits and send `Retry-After` without the `X-RateLimit-*` headers. */
         TooManyRequests: {
             headers: {
                 "x-request-id": components["headers"]["RequestId"];
+                "Retry-After": components["headers"]["RetryAfter"];
+                "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
+                "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
+                "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
                 [name: string]: unknown;
             };
             content: {
@@ -3656,182 +3723,30 @@ export interface components {
         AutomationInstanceId: string;
         /** @description Instagram automation key. */
         AutomationKey: "respond_to_dms" | "comment_to_dm" | "story_leads" | "story_mentions";
-        /** @description Conversation source. Omitted source includes api_v2 and API Playground tests. all includes api_v2, widget, instagram and API Playground tests; native browser previews are excluded. */
-        ConversationMessageSource: "api_v2" | "widget" | "instagram" | "playground" | "all";
-        /** @description Conversation source. all includes api_v2, widget, instagram and API Playground tests. playground selects API Playground tests; native browser previews are excluded. */
-        ConversationSource: "api_v2" | "widget" | "instagram" | "playground" | "all";
+        /** @description Conversation source. Omit it to include api_v2 and API Playground tests. Use all to include API v2, widget, Instagram, API Playground, Center Stage and Help Page conversations. */
+        ConversationMessageSource: "api_v2" | "widget" | "instagram" | "playground" | "center_stage" | "help_page" | "all";
+        /** @description Conversation source. Use all to include API v2, widget, Instagram, API Playground, Center Stage and Help Page conversations. Use playground to select API Playground tests. */
+        ConversationSource: "api_v2" | "widget" | "instagram" | "playground" | "center_stage" | "help_page" | "all";
+        /** @description Use true for unread conversations or false for read conversations. Omit it to include both. The parameter may appear once. */
+        ConversationUnread: boolean;
     };
     requestBodies: never;
     headers: {
         /** @description Unique request identifier. Include this value when contacting support. */
         RequestId: string;
+        /** @description Seconds to wait before sending the request again. */
+        RetryAfter: number;
+        /** @description Requests the exceeded limit allows per window. Sent when an API request limit was exceeded. */
+        RateLimitLimit: number;
+        /** @description Requests left in the current window, always 0 on a 429. Sent when an API request limit was exceeded. */
+        RateLimitRemaining: number;
+        /** @description Unix time in seconds when the current window ends. Sent when an API request limit was exceeded. */
+        RateLimitReset: number;
     };
     pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    requestDeviceCode: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DeviceCodeRequest"];
-            };
-        };
-        responses: {
-            /** @description Device and activation codes issued. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeviceCode"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            /** @description Too many codes requested from this IP. */
-            429: {
-                headers: {
-                    /** @description Seconds until another request can be made. */
-                    "Retry-After"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        error: "rate_limited";
-                    };
-                };
-            };
-        };
-    };
-    redeemDeviceCode: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DeviceTokenRequest"];
-            };
-        };
-        responses: {
-            /** @description Single-use response containing the new workspace API key. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeviceToken"];
-                };
-            };
-            /** @description The request is pending, polling too quickly, expired, denied or invalid. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {string} */
-                        error: "authorization_pending" | "expired_token" | "access_denied" | "invalid_grant";
-                    } | {
-                        /** @constant */
-                        error: "slow_down";
-                        interval: number;
-                    } | components["schemas"]["Error"];
-                };
-            };
-            /** @description The approver is no longer a workspace member. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        error: "access_denied";
-                    };
-                };
-            };
-            /** @description The active API key limit has been reached. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        error: "key_limit_reached";
-                    };
-                };
-            };
-        };
-    };
-    revokeCurrentKey: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Set to session when Authorization contains a Supabase user access JWT. Required when selecting session authentication; omit when using a workspace API key. */
-                "X-Agentkit-Auth"?: components["parameters"]["OptionalSessionAuthMode"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The API key was revoked. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description The current credential is a session. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        error: "not_an_api_key";
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-        };
-    };
-    getCurrentCredential: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Set to session when Authorization contains a Supabase user access JWT. Required when selecting session authentication; omit when using a workspace API key. */
-                "X-Agentkit-Auth"?: components["parameters"]["OptionalSessionAuthMode"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The current workspace and credential metadata. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CurrentCredential"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-        };
-    };
     listManagementChannels: {
         parameters: {
             query?: never;
@@ -3861,6 +3776,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getManagementChannel: {
@@ -3894,6 +3810,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     updateManagementChannelOverride: {
@@ -3931,6 +3848,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     updateWebPresentation: {
@@ -3966,6 +3884,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getCenterStage: {
@@ -3997,6 +3916,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     updateCenterStage: {
@@ -4032,6 +3952,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     listCustomApiActions: {
@@ -4063,6 +3984,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     createCustomApiAction: {
@@ -4098,6 +4020,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getCustomApiAction: {
@@ -4131,6 +4054,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     deleteCustomApiAction: {
@@ -4168,6 +4092,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     updateCustomApiAction: {
@@ -4205,6 +4130,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     setCustomApiActionStatus: {
@@ -4242,6 +4168,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     listAgentSecrets: {
@@ -4273,6 +4200,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     setAgentSecret: {
@@ -4310,6 +4238,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     deleteAgentSecret: {
@@ -4343,6 +4272,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     listWidgets: {
@@ -4374,6 +4304,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     createWidget: {
@@ -4409,6 +4340,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     importWidget: {
@@ -4444,6 +4376,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getWidget: {
@@ -4477,6 +4410,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     deleteWidget: {
@@ -4510,6 +4444,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     saveWidgetDraft: {
@@ -4547,6 +4482,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     setWidgetStatus: {
@@ -4584,6 +4520,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     publishWidget: {
@@ -4622,6 +4559,7 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     listWidgetVersions: {
@@ -4655,6 +4593,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getWidgetVersion: {
@@ -4690,6 +4629,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     duplicateWidget: {
@@ -4723,6 +4663,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     exportWidget: {
@@ -4756,6 +4697,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getBackstageOverview: {
@@ -4787,6 +4729,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     listBackstageSessions: {
@@ -4823,6 +4766,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getBackstageSession: {
@@ -4856,6 +4800,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     deleteBackstageSession: {
@@ -4889,6 +4834,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getBackstageChange: {
@@ -4922,6 +4868,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     decideBackstageChange: {
@@ -4959,6 +4906,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getBackstageRun: {
@@ -4991,6 +4939,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     cancelBackstageRun: {
@@ -5023,6 +4972,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     chatWithBackstage: {
@@ -5097,6 +5047,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getEmailThread: {
@@ -5129,6 +5080,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     discardEmailThread: {
@@ -5165,6 +5117,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     restoreEmailThread: {
@@ -5201,6 +5154,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     draftEmailThread: {
@@ -5233,6 +5187,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getEmailMessage: {
@@ -5265,6 +5220,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     forwardEmailMessage: {
@@ -5301,6 +5257,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     listEmailDrafts: {
@@ -5338,6 +5295,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getEmailDraft: {
@@ -5370,6 +5328,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     editEmailDraft: {
@@ -5406,6 +5365,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     sendEmailDraft: {
@@ -5442,6 +5402,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     enableEmailChannel: {
@@ -5477,6 +5438,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     disableEmailChannel: {
@@ -5508,6 +5470,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getEmailSettings: {
@@ -5539,6 +5502,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     updateEmailSettings: {
@@ -5574,6 +5538,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getEmailReplyAddress: {
@@ -5605,6 +5570,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     addEmailReplyAddress: {
@@ -5640,6 +5606,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     removeEmailReplyAddress: {
@@ -5671,6 +5638,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     verifyEmailReplyAddress: {
@@ -5706,6 +5674,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     listEmailAutomatedSenders: {
@@ -5737,6 +5706,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     addEmailAutomatedSender: {
@@ -5772,6 +5742,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     removeEmailAutomatedSender: {
@@ -5807,6 +5778,165 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    createDeviceCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description A device code to poll with and a user code to show the person. */
+            200: {
+                headers: {
+                    "x-request-id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceCode"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description Too many codes were requested from this IP address. */
+            429: {
+                headers: {
+                    "x-request-id": components["headers"]["RequestId"];
+                    "Retry-After": components["headers"]["RetryAfter"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        error: "rate_limited";
+                    };
+                };
+            };
+        };
+    };
+    redeemDeviceCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description The login was approved. The key is returned once. */
+            200: {
+                headers: {
+                    "x-request-id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceToken"];
+                };
+            };
+            /** @description `authorization_pending`: keep polling. `slow_down`: polled inside the interval; use the returned `interval` from now on. `expired_token`: the code is older than 10 minutes. `access_denied`: the person pressed Deny. `invalid_grant`: unknown, already redeemed, or lost a concurrent redemption. */
+            400: {
+                headers: {
+                    "x-request-id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceTokenError"];
+                };
+            };
+            /** @description The approving user is no longer a member of the workspace. */
+            403: {
+                headers: {
+                    "x-request-id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        error: "access_denied";
+                    };
+                };
+            };
+            /** @description The workspace already has 25 active API keys. */
+            409: {
+                headers: {
+                    "x-request-id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        error: "key_limit_reached";
+                    };
+                };
+            };
+        };
+    };
+    revokeCurrentApiKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The key was revoked. */
+            204: {
+                headers: {
+                    "x-request-id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The caller used a user session, not an API key. */
+            400: {
+                headers: {
+                    "x-request-id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        error: "not_an_api_key";
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getCurrentCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The workspace and credential. */
+            200: {
+                headers: {
+                    "x-request-id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentCredential"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getHealth: {
@@ -5857,6 +5987,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     createAgent: {
@@ -5885,6 +6016,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getAgent: {
@@ -5912,6 +6044,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     deleteAgent: {
@@ -5939,6 +6072,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     updateAgent: {
@@ -5971,6 +6105,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     chatWithAgent: {
@@ -6004,6 +6139,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     listConversations: {
@@ -6013,8 +6149,10 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 /** @description Opaque base64url cursor returned by the preceding page. Replay it unchanged. */
                 cursor?: components["parameters"]["Cursor"];
-                /** @description Conversation source. all includes api_v2, widget, instagram and API Playground tests. playground selects API Playground tests; native browser previews are excluded. */
+                /** @description Conversation source. Use all to include API v2, widget, Instagram, API Playground, Center Stage and Help Page conversations. Use playground to select API Playground tests. */
                 source?: components["parameters"]["ConversationSource"];
+                /** @description Use true for unread conversations or false for read conversations. Omit it to include both. The parameter may appear once. */
+                unread?: components["parameters"]["ConversationUnread"];
             };
             header?: never;
             path: {
@@ -6039,6 +6177,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     exportConversations: {
@@ -6048,8 +6187,10 @@ export interface operations {
                 limit?: number;
                 /** @description Opaque base64url cursor returned by the preceding page. Replay it unchanged. */
                 cursor?: components["parameters"]["Cursor"];
-                /** @description Conversation source. all includes api_v2, widget, instagram and API Playground tests. playground selects API Playground tests; native browser previews are excluded. */
+                /** @description Conversation source. Use all to include API v2, widget, Instagram, API Playground, Center Stage and Help Page conversations. Use playground to select API Playground tests. */
                 source?: components["parameters"]["ConversationSource"];
+                /** @description Use true for unread conversations or false for read conversations. Omit it to include both. The parameter may appear once. */
+                unread?: components["parameters"]["ConversationUnread"];
             };
             header?: never;
             path: {
@@ -6074,12 +6215,13 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getConversation: {
         parameters: {
             query?: {
-                /** @description Conversation source. all includes api_v2, widget, instagram and API Playground tests. playground selects API Playground tests; native browser previews are excluded. */
+                /** @description Conversation source. Use all to include API v2, widget, Instagram, API Playground, Center Stage and Help Page conversations. Use playground to select API Playground tests. */
                 source?: components["parameters"]["ConversationSource"];
             };
             header?: never;
@@ -6107,12 +6249,13 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     listConversationMessages: {
         parameters: {
             query?: {
-                /** @description Conversation source. Omitted source includes api_v2 and API Playground tests. all includes api_v2, widget, instagram and API Playground tests; native browser previews are excluded. */
+                /** @description Conversation source. Omit it to include api_v2 and API Playground tests. Use all to include API v2, widget, Instagram, API Playground, Center Stage and Help Page conversations. */
                 source?: components["parameters"]["ConversationMessageSource"];
                 /** @description Maximum number of records to return. */
                 limit?: components["parameters"]["Limit"];
@@ -6144,6 +6287,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     updateMessageFeedback: {
@@ -6181,6 +6325,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     retryConversation: {
@@ -6217,6 +6362,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -6252,6 +6398,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     listUserConversations: {
@@ -6263,6 +6410,8 @@ export interface operations {
                 cursor?: components["parameters"]["Cursor"];
                 /** @description Only api_v2 is accepted because user IDs are written by API v2 chat. */
                 source?: "api_v2";
+                /** @description Use true for unread conversations or false for read conversations. Omit it to include both. The parameter may appear once. */
+                unread?: components["parameters"]["ConversationUnread"];
             };
             header?: never;
             path: {
@@ -6289,6 +6438,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     listSources: {
@@ -6324,6 +6474,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     createTextSource: {
@@ -6356,6 +6507,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     createQnaSource: {
@@ -6388,6 +6540,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     createUrlSource: {
@@ -6420,6 +6573,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -6488,6 +6642,39 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Agent UUID. */
+                agentId: components["parameters"]["AgentId"];
+                /** @description Training source document UUID. */
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The source and its full stored content. */
+            200: {
+                headers: {
+                    "x-request-id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceDetailResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -6519,6 +6706,44 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    updateSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Agent UUID. */
+                agentId: components["parameters"]["AgentId"];
+                /** @description Training source document UUID. */
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSourceRequest"];
+            };
+        };
+        responses: {
+            /** @description The source and its full stored content. */
+            200: {
+                headers: {
+                    "x-request-id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceDetailResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
         };
     };
     listContacts: {
@@ -6554,6 +6779,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     upsertContact: {
@@ -6586,6 +6812,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     importContacts: {
@@ -6618,6 +6845,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     listLeads: {
@@ -6655,6 +6883,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getAiSettings: {
@@ -6682,6 +6911,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     updateAiSettings: {
@@ -6714,6 +6944,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getDesignSettings: {
@@ -6741,6 +6972,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     updateDesignSettings: {
@@ -6773,6 +7005,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getSecuritySettings: {
@@ -6800,6 +7033,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     updateSecuritySettings: {
@@ -6832,6 +7066,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getNotificationSettings: {
@@ -6859,6 +7094,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     updateNotificationSettings: {
@@ -6891,6 +7127,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getTrainingSettings: {
@@ -6918,6 +7155,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     updateTrainingSettings: {
@@ -6950,6 +7188,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getTrainingStatus: {
@@ -6977,6 +7216,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     startTraining: {
@@ -7014,6 +7254,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getInstagramChannel: {
@@ -7041,6 +7282,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getInstagramAutomation: {
@@ -7070,6 +7312,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     updateInstagramAutomation: {
@@ -7105,6 +7348,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     listInstagramAutomationInstances: {
@@ -7134,6 +7378,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     createInstagramAutomationInstance: {
@@ -7169,6 +7414,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getInstagramAutomationInstance: {
@@ -7200,6 +7446,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     updateInstagramAutomationInstance: {
@@ -7237,6 +7484,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getInstagramConversationStarters: {
@@ -7264,6 +7512,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     updateInstagramConversationStarters: {
@@ -7297,6 +7546,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
             502: components["responses"]["BadGateway"];
         };
     };
@@ -7325,6 +7575,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     updateInstagramMenu: {
@@ -7358,6 +7609,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
             502: components["responses"]["BadGateway"];
         };
     };
@@ -7386,6 +7638,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
 }

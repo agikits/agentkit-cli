@@ -37,16 +37,10 @@ The 2026-11-23 observation, after product commit `76cec23a` (PR #813) deployed,
 adds an optional per-file `size` to upload-URL requests, reserved against the
 account upload budget, plus 429 on URL creation and 409 on repeat registration.
 
-`deploymentStatus: "schema-observed"` records the published specification, not
-successful authenticated calls. `authenticatedRuntimeAcceptance: "pending"`
-keeps that release gate explicit. The checksummed `deployed-openapi.json` now
-matches the reviewed snapshot, and `contracts:live` checks live paths and
-components against that snapshot. While a future candidate has status `pending`,
-the live check compares against its separately reviewed observed baseline. It
-reports drift without asserting that candidate routes are absent from production.
+The live drift check compares published paths and components with the
+checksummed baseline. Authenticated runtime acceptance is recorded separately.
 
-The 0.3.0 candidate extends the November 23 baseline with device code issuance
-and redemption, current credential status, key revocation and scoped-key
-errors. The candidate follows the shared CLI and app auth contract. Mocked HTTP
-tests exercise the four new routes through the CLI. Deployment and authenticated
-runtime acceptance are pending.
+On November 25 the published specification matched product commit `bf248c765`,
+including browser login and scoped keys. The 0.5.0 snapshot adds the source
+GET and PATCH operations from product commit `26436495c`. The deployed
+baseline and the candidate have separate checksums in `provenance.json`.

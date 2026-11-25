@@ -1,6 +1,6 @@
 [
   {
-    "operationId": "requestDeviceCode",
+    "operationId": "createDeviceCode",
     "method": "POST",
     "path": "/auth/device/code",
     "sdk": null,
@@ -14,7 +14,7 @@
     "cli": "auth login --browser"
   },
   {
-    "operationId": "revokeCurrentKey",
+    "operationId": "revokeCurrentApiKey",
     "method": "DELETE",
     "path": "/auth/key",
     "sdk": null,
@@ -24,7 +24,7 @@
     "operationId": "getCurrentCredential",
     "method": "GET",
     "path": "/me",
-    "sdk": null,
+    "sdk": "whoami",
     "cli": "auth status"
   },
   {
@@ -173,6 +173,20 @@
     "path": "/agents/{agentId}/sources/file",
     "sdk": "registerFileSources",
     "cli": "sources register-files"
+  },
+  {
+    "operationId": "getSource",
+    "method": "GET",
+    "path": "/agents/{agentId}/sources/{documentId}",
+    "sdk": "getSource",
+    "cli": "sources get"
+  },
+  {
+    "operationId": "updateSource",
+    "method": "PATCH",
+    "path": "/agents/{agentId}/sources/{documentId}",
+    "sdk": "updateSource",
+    "cli": "sources update"
   },
   {
     "operationId": "deleteSource",

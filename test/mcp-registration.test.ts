@@ -67,7 +67,7 @@ it.each(["cursor", "vscode", "claude-desktop", "windsurf"])("merges, replaces an
   const key = client === "vscode" ? "servers" : "mcpServers";
   const body = `{\n  "${key}": { "other": { "command": "keep" } },\n  "extra": true\n}\n`;
   await write(file, body);
-  const args = ["add", client, ...scope, "--name", "custom"];
+  const args = ["add", "--local", client, ...scope, "--name", "custom"];
   const preview = success([...args, "--dry-run"]);
   expect(preview.server.args).toEqual(fallback);
   expect(await fs.readFile(file, "utf8")).toBe(body);
@@ -96,13 +96,13 @@ it("keeps Codex TOML comments and unrelated tables across all edits", async () =
   const original = '# my config\nmodel = "example" # keep\n\n[mcp_servers.other]\ncommand = "keep" # server note\n';
   await write(file, original);
   const binaryPath = await binary("agentkit-mcp", "process.exit(44)");
-  let added = success(["add", "codex", "--agent", uuid]);
+  let added = success(["add", "--local", "codex", "--agent", uuid]);
   expect(added.server.command).toBe(binaryPath);
   expect(toml(await fs.readFile(file, "utf8")).mcp_servers.agentkit.args).toEqual(["--agent", uuid]);
-  expect(success(["add", "codex", "--agent", uuid]).action).toBe("unchanged");
+  expect(success(["add", "--local", "codex", "--agent", uuid]).action).toBe("unchanged");
   expect(await fs.readFile(file + ".bak", "utf8")).toBe(original);
-  expect(run(["add", "codex"]).status).toBe(1);
-  added = success(["add", "codex", "--force"]);
+  expect(run(["add", "--local", "codex"]).status).toBe(1);
+  added = success(["add", "--local", "codex", "--force"]);
   expect(added.server.args).toEqual([]);
   success(["remove", "codex"]);
   const result = await fs.readFile(file, "utf8");
@@ -119,12 +119,12 @@ it("preserves neighboring VS Code JSONC comments and other scope", async () => {
   const text = await fs.readFile(file, "utf8");
   expect(text).toContain("// keep sibling comment");
   expect(jsonc(text)).toEqual({ servers: { mine: { command: "other" } }, inputs: [] });
-  success(["add", "cursor", "--scope", "project"]);
+  success(["add", "--local", "cursor", "--scope", "project"]);
   await expect(fs.stat(path.join(home, ".cursor/mcp.json"))).rejects.toMatchObject({ code: "ENOENT" });
 });
 
 it("previews native arguments and reports a manual command when Claude Code is absent", () => {
-  const res = success(["add", "claude-code", "--scope", "project", "--allow-writes"]);
+  const res = success(["add", "--local", "claude-code", "--scope", "project", "--allow-writes"]);
   expect(res.action).toBe("manual");
   expect(res.command).toBe("claude mcp add --scope project agentkit -- npx -y -p @agikits/agentkit agentkit-mcp --allow-writes");
 });
@@ -141,13 +141,13 @@ it.each(["user", "project", "local"])("calls Claude Code and preserves other %s 
   `);
   const file = scope === "project" ? path.join(project, ".mcp.json") : path.join(home, ".claude.json");
   await write(file, '{"unrelated":"keep"}');
-  const args = ["add", "claude-code", "--scope", scope, "--allow-writes"];
+  const args = ["add", "--local", "claude-code", "--scope", scope, "--allow-writes"];
   expect(success(args).action).toBe("add");
   expect(success(args).action).toBe("unchanged");
   const settings = JSON.parse(await fs.readFile(file, "utf8"));
   expect(settings.unrelated).toBe("keep");
   expect((scope === "local" ? settings.projects[project] : settings).mcpServers.agentkit.args).toEqual([...fallback, "--allow-writes"]);
-  expect(success(["status"]).clients).toContainEqual({ client: "claude-code", scope, configured: true, args: [...fallback, "--allow-writes"] });
+  expect(success(["status"]).clients).toContainEqual({ client: "claude-code", scope, configured: true, transport: "stdio", args: [...fallback, "--allow-writes"] });
   success(["remove", "claude-code", "--scope", scope]);
 });
 
@@ -163,11 +163,11 @@ it("uses the VS Code CLI for user registration and leaves config intact on nativ
     fs.mkdirSync(path.join(data,'User'), {recursive:true});
     fs.writeFileSync(path.join(data,'User/mcp.json'), JSON.stringify({servers:{[name]:server}}));
   `);
-  success(["add", "vscode"]);
+  success(["add", "--local", "vscode"]);
   const saved = await fs.readFile(file, "utf8");
   expect(JSON.parse(saved).servers).toMatchObject({ agentkit: { command: "npx", type: "stdio" }, other: { command: "keep" } });
   await binary("code", "process.exit(1)");
-  expect(run(["add", "vscode", "--allow-writes", "--force"]).status).toBe(1);
+  expect(run(["add", "--local", "vscode", "--allow-writes", "--force"]).status).toBe(1);
   expect(await fs.readFile(file, "utf8")).toBe(saved);
   expect(await fs.readFile(file + ".bak", "utf8")).toBe(body);
 });
@@ -177,14 +177,14 @@ it("reports offline login and server args without copying credentials or printin
   const creds = { key: "synthetic-key", sessionToken: "synthetic-session", sessionUrl: "https://agentkit.ai" };
   await write(login, JSON.stringify(creds));
   const file = path.join(home, ".cursor/mcp.json");
-  success(["add", "cursor", "--agent", uuid]);
+  success(["add", "--local", "cursor", "--agent", uuid]);
   const raw = await fs.readFile(file, "utf8");
   expect(raw).not.toContain(creds.key);
   expect(raw).not.toContain(creds.sessionToken);
   let report = success(["status"]);
   expect(report.loggedIn).toBe(true);
   expect(report.mcpApiKeyConfigured).toBe(true);
-  expect(report.clients).toContainEqual({ client: "cursor", scope: "user", configured: true, args: [...fallback, "--agent", uuid] });
+  expect(report.clients).toContainEqual({ client: "cursor", scope: "user", configured: true, transport: "stdio", args: [...fallback, "--agent", uuid] });
   await write(login, JSON.stringify({ sessionToken: creds.sessionToken, sessionUrl: creds.sessionUrl }));
   await write(file, JSON.stringify({ mcpServers: { agentkit: { command: "other", args: ["--token", "foreign-secret\u001b[31m\n"], env: { PASSWORD: "other-secret" } } } }));
   report = success(["status", "--scope", "user"]);
@@ -207,7 +207,7 @@ it("requires an explicit noninteractive choice; rejects unsupported scopes, tran
     ["add", "cursor", "--name", "__proto__"], ["add", "cursor", "--agent", "bogus"], ["add", "codex", "--scope", "project"]]) {
     expect(run(args).status).toBe(1);
   }
-  expect(run(["--remote"]).stderr).toContain("Remote MCP server is not available yet");
+  expect(run(["add", "codex", "--local", "--agent", "bogus"]).stderr).toContain("requires UUIDs");
   expect(await fs.readdir(path.join(home, ".cursor"))).toEqual([]);
 });
 
@@ -223,4 +223,72 @@ it("refuses malformed or ambiguous files even with force and checks remaining cl
     expect(report.status).toBe(1);
     expect(JSON.parse(report.stdout).clients).toContainEqual(expect.objectContaining({ client: "cursor", scope: "user", error: expect.any(String) }));
   }
+});
+
+const hostedUrl = "https://agentkit.ai/api/mcp";
+it.each(["cursor", "windsurf", "codex", "vscode"])("registers hosted HTTP by default for %s and recognizes it in status", async client => {
+  const scope = client === "vscode" ? ["--scope", "project"] : [];
+  const args = ["add", client, ...scope];
+  const desired = client === "windsurf" ? { serverUrl: hostedUrl } : client === "vscode" ? { url: hostedUrl, type: "http" } : { url: hostedUrl };
+  const added = success(args);
+  expect(added.server).toEqual(desired);
+  const raw = await fs.readFile(added.file, "utf8");
+  const servers = client === "codex" ? toml(raw).mcp_servers : jsonc(raw)[client === "vscode" ? "servers" : "mcpServers"];
+  expect(servers.agentkit).toEqual(desired);
+  expect(success(["--remote", ...args]).action).toBe("unchanged");
+  expect(success(["status"]).clients).toContainEqual({ client, scope: scope[1] ?? "user", configured: true, transport: "http", url: hostedUrl });
+  expect(run(["status"]).stdout).not.toContain("requires a workspace API key");
+  expect(success([...args, "--local", "--force", "--allow-delete", "--allow-export"]).server.args).toEqual([...fallback, "--allow-delete", "--allow-export"]);
+  expect(run(["status"]).stdout).toContain("requires a workspace API key");
+});
+
+it("gives Claude Desktop connector instructions without touching local config", async () => {
+  const file = path.join(appData, "Claude/claude_desktop_config.json");
+  await write(file, "{invalid local config");
+  const manual = success(["add", "claude-desktop", "--force"]);
+  expect(manual.action).toBe("manual");
+  expect(manual.instructions).toContain("Settings → Connectors");
+  expect(manual.instructions).toContain(hostedUrl);
+  expect(await fs.readFile(file, "utf8")).toBe("{invalid local config");
+  expect(run(["add", "claude-desktop", "--url", "https://example.test"]).stdout).toContain("https://example.test/api/mcp");
+});
+
+it("registers remote Claude Code and VS Code through their native CLIs", async () => {
+  const manual = success(["add", "claude-code", "--scope", "project"]);
+  expect(manual.command).toBe(`claude mcp add --transport http --scope project agentkit ${hostedUrl}`);
+  await binary("claude", `
+    const fs = require("node:fs");
+    const args = process.argv.slice(2);
+    if (args.slice(0, 7).join(" ") !== "mcp add --transport http --scope project agentkit") process.exit(1);
+    fs.writeFileSync(".mcp.json", JSON.stringify({ mcpServers: { agentkit: { type: "http", url: args[7] } } }));
+  `);
+  expect(success(["add", "claude-code", "--scope", "project"]).action).toBe("add");
+  expect(JSON.parse(await fs.readFile(path.join(project, ".mcp.json"), "utf8")).mcpServers.agentkit).toEqual({ type: "http", url: hostedUrl });
+  await binary("code", `
+    const fs = require("node:fs"), path = require("node:path");
+    const [dirFlag, dir, addFlag, json] = process.argv.slice(2);
+    if (dirFlag !== "--user-data-dir" || addFlag !== "--add-mcp") process.exit(1);
+    const { name, ...server } = JSON.parse(json);
+    fs.mkdirSync(path.join(dir, "User"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "User/mcp.json"), JSON.stringify({ servers: { [name]: server } }));
+  `);
+  const added = success(["add", "vscode"]);
+  expect(JSON.parse(await fs.readFile(added.file, "utf8")).servers.agentkit).toEqual({ type: "http", url: hostedUrl });
+});
+
+it("rejects conflicting transports and local grant flags on remote registrations", async () => {
+  expect(run(["add", "cursor", "--local", "--remote"]).stderr).toContain("either --remote or --local");
+  for (const flags of [["--agent", uuid], ["--allow-writes"], ["--allow-delete"], ["--allow-export"]]) {
+    const result = run(["add", "cursor", ...flags]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("workspace-wide");
+  }
+  await expect(fs.stat(path.join(home, ".cursor/mcp.json"))).rejects.toMatchObject({ code: "ENOENT" });
+});
+
+it("removes embedded credentials, query, path tokens and fragments from remote status", async () => {
+  await write(path.join(home, ".cursor/mcp.json"), JSON.stringify({ mcpServers: { agentkit: { url: "https://user:secret@agentkit.test/path-secret?token=secret#secret" } } }));
+  const result = run(["status", "--json"]);
+  expect(result.stdout).not.toContain("secret");
+  expect(result.stdout).toContain("https://agentkit.test/[redacted]");
 });
