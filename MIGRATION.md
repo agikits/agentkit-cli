@@ -70,9 +70,9 @@ protocol support.
 
 ## New management commands
 
-Existing account-key commands keep their authentication. Channels, Widgets and
-Backstage commands use `AGENTKIT_SESSION_TOKEN` or the saved session when present;
-otherwise common management reads/configuration use the account key. Gated
+Existing account-key commands keep their authentication. Channel commands use
+`AGENTKIT_SESSION_TOKEN` or the saved session when present. Common management
+reads and configuration also accept the account key. Gated
 operations fail locally without a session and never fall back to the key.
 Store a short-lived user access token with `agentkit auth login --with-session-token` on stdin.
 Saved sessions are bound to their origin.
@@ -83,32 +83,25 @@ stays at `/channels/instagram`; channel instructions use
 `/channels/instagram/config`. `channels get`, `channels configure`, `channels
 web-presentation` and `channels center-stage` expose those distinct settings.
 
-Widget saves/publication require `expectedUpdatedAt`; Web/Center Stage writes
-require `expectedRevision`. Backstage decisions with an incomplete state exit
-nonzero. Nothing retries these writes automatically.
+Web presentation and Center Stage writes require `expectedRevision`.
 
 Custom API action and secret writes also require a user session. New actions are
 always disabled. Read `updatedAt`, pass it to update, enable, disable or delete,
 and reload on HTTP 409. `secrets set` accepts stdin or `--env`; positional secret
-values are intentionally unsupported. Email channel configuration must preserve
-`instructionMode: "inherit"` and `instructionOverride: null` while changing its
-action allowlist.
+values are intentionally unsupported.
 
 ## Email operations
 
 `emails <project>` lists inbox threads and `email <project> <thread-id>` shows
 plain-text message bodies. Both support `--json` and account API keys. The grouped
 `emails list/get` and `emails drafts list/get` commands also support account keys.
-`email` retains setup/settings/reply routing subcommands, and `emails` retains
-review and delivery commands. Draft edit and send accept a workspace key with the
-reviewed revision, and discard and restore accept a workspace key. Setup and
-other email writes require a user session. The
-published draft-approval schema matched the reviewed source on 2026-10-15;
-authenticated runtime acceptance remains pending.
+Draft edit and send accept a workspace key with the reviewed revision, and
+discard and restore accept a workspace key. The published draft-approval schema
+matched the reviewed source on 2026-10-15. Authenticated runtime acceptance
+remains pending.
 Read `emails get` before mutating a thread and `emails drafts get` before editing
 or sending. Discard takes the reviewed inbound/draft IDs and editedAt; restore,
 edit and send take the reviewed revision. A conflict requires a fresh read.
 Email pages return `pagination.nextCursor`, unlike older API lists' `cursor`.
 Automated mail reasons become available for newly stored mail; absent historical
-mail is not backfilled. Initial address selection does not rename an existing
-inbox.
+mail is not backfilled.

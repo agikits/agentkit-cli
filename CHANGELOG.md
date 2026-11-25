@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.5.0 (unreleased)
+## 0.5.1 (unreleased)
+
+- CLI help, the capabilities catalogue and installable skills now list released commands. Existing command spellings still work for eligible callers.
+
+## 0.5.0
 
 - Read and edit existing knowledge with `sources get` and `sources update`.
 - Register hosted MCP by default with `mcp add`. Pass `--local` for stdio.

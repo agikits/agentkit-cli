@@ -35,9 +35,8 @@ credential came from. Workspace keys reach every agent in the workspace within
 their granted scopes. Keep keys on trusted systems, out of browser bundles and
 shell history. A scope error names the permission the request requires.
 
-Session-only commands for Widgets, actions, secrets, Center Stage, Backstage
-and email use a short-lived Supabase access token. Set `AGENTKIT_SESSION_TOKEN`
-or pipe the token to `agentkit auth login --with-session-token`. Saved API keys
+Session-only commands for actions, secrets and Center Stage use a short-lived
+Supabase access token. Set `AGENTKIT_SESSION_TOKEN` or pipe the token to `agentkit auth login --with-session-token`. Saved API keys
 and session tokens are bound to their configured origin. The CLI lets sessions
 expire on the server's schedule. Workspace keys can read the inbox and edit,
 send, discard or restore reviewed email items within their scopes.
@@ -82,8 +81,6 @@ agentkit instagram status demo --json
 agentkit channels list demo --json
 agentkit actions list demo --json
 agentkit secrets list demo --json
-agentkit widgets list demo --json
-agentkit backstage overview demo --json
 ```
 
 Commands with a project argument use the explicit project first, then
@@ -113,8 +110,8 @@ The selected channel must match the conversation being continued. Use
 `conversations list/get/export --source playground` to inspect CLI tests.
 
 Use each command's `--help` for arguments. Resource commands are canonical in help. Existing flat commands remain supported as hidden aliases.
-Read [the command migration guide](MIGRATION.md) and the complete
-[REST/SDK/CLI coverage table](contracts/COVERAGE.md) in the repository.
+Read [the command migration guide](MIGRATION.md) and the
+[public REST/SDK/CLI coverage table](contracts/COVERAGE.md) in the repository.
 
 Success data goes to stdout. `--json` requests JSON independently of TTY state.
 Errors are a JSON envelope on stderr and exit nonzero. Human streaming text goes
@@ -134,8 +131,7 @@ including discarded threads and their review reasons. Filter with
 `--cursor` for paging. Email list responses use `pagination.nextCursor`.
 `email <project> <thread-id>` prints message headers, plain-text bodies and draft
 states; add `--json` for the complete thread. The SDK also exposes
-`listEmailDrafts` and `getEmailMessage`. Email forwarding and draft requests require a user session; discard, restore,
-reviewed draft edits and sends also accept an account API key. Use the grouped commands below
+`listEmailDrafts` and `getEmailMessage`. Discard, restore, reviewed draft edits and sends also accept an account API key. Use the grouped commands below
 for those operations.
 The pinned published API specification includes these email reads. Their
 authenticated runtime acceptance remains pending.
@@ -323,16 +319,11 @@ checks. These files do not represent accepted listings.
 
 ## Agent skills
 
-The tarball includes six short skills under `skills/`: `agentkit`,
-`agentkit-knowledge`, `agentkit-conversations`, `agentkit-channels`, `agentkit-widgets`, and `agentkit-backstage`.
+The four skills under `skills/` are `agentkit`,
+`agentkit-knowledge`, `agentkit-conversations`, and `agentkit-channels`.
 Copy the relevant skill folders into your coding agent's supported skills
 location. Installation does not activate a skill automatically or authorize writes.
 The package excludes internal chatlog-review instructions and local registries.
-
-Center Stage, interactive Widgets and Backstage management use the management
-commands and require user-session authentication where the coverage table says
-so. Publishing a widget and approving a Backstage change require `--yes`.
-`settings design` still configures the legacy shared Chat Bubble fields.
 
 ## Management workflow
 
@@ -345,23 +336,11 @@ agentkit channels list <agent-id> --json
 agentkit channels get <agent-id> web --json
 agentkit channels web-presentation <agent-id> --file presentation.json
 agentkit channels center-stage <agent-id> --json
-agentkit widgets get <agent-id> <widget-id> --json
-agentkit widgets save <agent-id> <widget-id> --file draft.json
-agentkit backstage change <agent-id> <change-id> --json
 ```
 
 Web presentation writes include `expectedRevision` from the preceding read.
-Center Stage updates contain `settings` and `expectedRevision`. Widget saves
-include `draft` and the Widget's `expectedUpdatedAt`. Reload and reconcile on
-HTTP 409. Do not substitute a newer revision merely to force a write through.
-Widget publication requires that same timestamp and `--yes`; imports create
-drafts. Invalid source/package responses include compiler diagnostics.
-
-Backstage chat emits JSON lines with session metadata and proposal displays.
-Use a unique `--client-message-id` and retain the session ID. Read the exact
-proposal before an authorized decision. A stale/failed/busy approval exits
-nonzero; it is not reported as executed. Session reads contain the latest 40
-messages, while session lists are paginated.
+Center Stage updates contain `settings` and `expectedRevision`.
+Reload the settings after HTTP 409 and reconcile the edits before retrying.
 
 ## Development and release preparation
 
@@ -395,24 +374,16 @@ Authoritative API docs: [overview](https://agentkit.ai/docs/developer/api-v2),
 [OpenAPI](https://agentkit.ai/openapi.json). Do not post tokens or customer
 transcripts in bug reports. Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 
-## Email inbox and setup
+## Email inbox
 
-Email inbox reads and reviewed draft edit/send accept account API keys or an explicit user session.
-Setup and other writes require a user session, the existing management API eligibility,
-and the email rollout/plan gates. Draft edit/send require email entitlement.
+Use a workspace API key to read inbox threads and drafts. Draft edits and
+sends also require email entitlement.
 The published draft-approval schema matched the reviewed source on 2026-10-15,
 as recorded in `contracts/provenance.json`. Authenticated workflow acceptance remains pending.
-Use `email` for settings and routing and `emails` for inbox threads and drafts.
 
 ```sh
-agentkit channels enable demo email --address whystle
 agentkit emails list demo --status discarded --since 2026-10-10T00:00:00Z
 agentkit emails get demo <thread-id>
-agentkit email reply-address add demo support@example.com
-agentkit email reply-address status demo
-agentkit email reply-address verify demo <six-digit-code>
-agentkit email settings demo --auto-send off --signature-file signature.txt --signature on
-agentkit email automated-senders add demo notifications@example.com
 agentkit emails drafts list demo
 agentkit emails drafts get demo <draft-id>
 agentkit emails drafts edit demo <draft-id> --body-file reply.txt --expected-revision <revision>
@@ -423,31 +394,14 @@ Inbox lists default to all partitions. Pass `pagination.nextCursor` as `--cursor
 with the same filters. Detail retains full stored bodies and headers, structured
 discard reasons and chronological messages. Unknown historical reasons stay
 unknown; messages rejected before storage are unavailable. Reads do not mark
-messages read or consume verification codes. Reply-address add/status do not
-reveal a challenge code.
+messages read.
 
 Discard requires the reviewed detail's `--inbound-message-id`, plus its pending
 `--draft-id` and `--draft-edited-at` when present. Restore requires the thread's
 `--expected-revision`. Restoring creates review state and never generates or
-sends a reply. `emails draft` explicitly requests a draft without auto-send.
-Draft edit/send accept a workspace API key or user session. They require the reviewed
+sends a reply. Draft edit/send accept a workspace API key. They require the reviewed
 draft revision and reject a changed draft, a newer inbound message or another reviewer's action. Reload after a conflict.
 Send approves the existing draft. Retries retain its delivery identity.
-
-Forward requires `--to` and a stable UUID `--submission-id`, with optional
-`--note-file`. If it times out, inspect inbox detail and retry only with the same
-identity. Incomplete delivery states exit nonzero and remain distinct from sent
-or already-sent success. No command automatically retries a write.
-
-Settings patch only the supplied flags. Signature files are UTF-8 plain text;
-an empty file clears text, and `--signature off` disables inclusion. Other email
-settings remain untouched. Automated-sender entries are exact From addresses,
-apply to future messages, and place those messages into review without actions
-or auto-send. They do not authenticate a sender.
-
-`--address` selects a new inbox's local part. Repeated enable preserves the
-existing address, and requesting a different one conflicts. Renaming the agent
-does not rename its inbox. Disabling preserves email history.
 
 For a source-linked install, run `npm ci && npm link`. Both run the existing
 prepare/build hook. If scripts were skipped, run `npm run build` in the linked

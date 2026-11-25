@@ -1469,11 +1469,6 @@ for (const [name, commands] of Object.entries(groups)) {
     group.addCommand(command.name(verb));
   }
 }
-// Resource commands are canonical; flat spellings retain their handlers and flags.
-const legacyNames = new Set(["init", "logout", ...Object.values(groups).flatMap(commands => Object.values(commands))]);
-program.configureHelp({
-  visibleCommands: command => command.commands.filter(child => !legacyNames.has(child.name()) || child.commands.length > 0),
-});
 const mcp = program.command("mcp").description("Connect MCP clients or run the read-only stdio server")
   .option("--allow-writes", "Enable write tools, including training and chat")
   .option("--allow-delete", "Enable source deletion")
@@ -1486,9 +1481,21 @@ const mcp = program.command("mcp").description("Connect MCP clients or run the r
 registerMcpCommands(mcp);
 registerEmailCommands(program, managementProjectClient, emailReadProjectClient, out);
 registerAgentDefaults(program, out);
-// Summaries list subcommands, including those added by registerEmailCommands.
+// Flat aliases stay callable. Only released resource groups appear in root help.
+const hiddenRootCommands = new Set(["init", "logout", "widgets", "backstage"]);
+for (const commands of Object.values(groups)) {
+  for (const legacy of Object.values(commands)) {
+    if (!Object.hasOwn(groups, legacy)) hiddenRootCommands.add(legacy);
+  }
+}
+program.configureHelp({
+  visibleCommands: root => root.commands.filter(child => !hiddenRootCommands.has(child.name())),
+});
 for (const command of program.commands) {
-  if (command.commands.length) command.summary(`${groupDescriptions[command.name()] ?? command.description()} (${command.commands.map(c => c.name()).join(", ")})`);
+  const verbs = command.createHelp().visibleCommands(command)
+    .filter(child => command.commands.includes(child))
+    .map(child => child.name());
+  if (verbs.length) command.summary(`${groupDescriptions[command.name()] ?? command.description()} (${verbs.join(", ")})`);
 }
 program.parseAsync().catch((error: unknown) => {
   // Commander reports group help without a subcommand as an error; showing help is a successful outcome.
