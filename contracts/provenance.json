@@ -1,8 +1,8 @@
 {
   "productCommit": "76cec23a98bc81876c2ccf8007daaf9bc335870b",
   "source": "apps/chatbots/app/api/v2/_lib/openapi/spec.ts",
-  "sha256": "94c90ddf24dc0143e0a1f2a67f86d4920bce7011876939988d17b45bcbf5c412",
-  "deploymentStatus": "schema-observed",
+  "sha256": "7293b68f7688c2b170e7f4cb7897d4ecba5491bcc57e3330a65dbc723949ebdd",
+  "deploymentStatus": "pending",
   "liveBaseline": {
     "path": "deployed-openapi.json",
     "sha256": "94c90ddf24dc0143e0a1f2a67f86d4920bce7011876939988d17b45bcbf5c412"
@@ -44,5 +44,12 @@
     "deploymentStatus": "schema-observed",
     "productCommit": "76cec23a98bc81876c2ccf8007daaf9bc335870b",
     "scope": "Optional per-file size on upload-URL requests (reserved against the account upload budget); 429 on upload-URL creation and 409 on repeat registration."
+  },
+  "cliAuthChange": {
+    "source": "CLI 0.3.0 and app shared Part A API contract",
+    "baseProductCommit": "76cec23a98bc81876c2ccf8007daaf9bc335870b",
+    "deploymentStatus": "pending",
+    "authenticatedRuntimeAcceptance": "pending",
+    "scope": "CLI device authorization, credential status, key revocation and scoped API key errors."
   }
 }

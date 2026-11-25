@@ -13,7 +13,7 @@ import { clients, executable, type ClientConfig, type Target } from "./mcp-clien
 import { commitConfig, configEntry, contents } from "./mcp-config.js";
 
 type Server = { command: string; args: string[]; type?: "stdio" };
-type Options = { agent?: string[]; allowWrites?: boolean; scope?: string; name: string; force?: boolean; dryRun?: boolean; json?: boolean };
+type Options = { agent?: string[]; allowWrites?: boolean; scope?: string; name: string; force?: boolean; dryRun?: boolean; json?: boolean; plain?: boolean; quiet?: boolean; input?: boolean };
 const fallback = ["-y", "-p", "@agikits/agentkit", "agentkit-mcp"];
 function serverFor(opts: Options): Server {
   if (opts.agent?.some(id => !AGENT_ID.test(id))) throw new Error("--agent requires UUIDs.");
@@ -34,8 +34,8 @@ function sameServer(existing: unknown, desired: Server) {
 function clean(value: string) {
   return redact(stripVTControlCharacters(value)).replace(/[\u0000-\u001f\u007f-\u009f]/g, " ");
 }
-function printJson(value: unknown) {
-  console.log(JSON.stringify(value, (_key, val: unknown) => typeof val === "string" ? clean(val) : val, 2));
+function printJson(value: unknown, plain?: boolean) {
+  console.log(JSON.stringify(value, (_key, val: unknown) => typeof val === "string" ? clean(val) : val, plain ? undefined : 2));
 }
 function displayCommand(argv: string[]) {
   const win = process.platform === "win32";
@@ -46,11 +46,11 @@ function displayCommand(argv: string[]) {
   return (win && words[0]?.startsWith("'") ? "& " : "") + words.join(" ");
 }
 
-async function choose(id: string | undefined, operation: string) {
+async function choose(id: string | undefined, operation: string, input?: boolean) {
   const all = clients();
   const detected = all.filter(client => client.detected);
   const choices = all.map(client => client.id).join(", ");
-  if (!id && process.stdin.isTTY && process.stderr.isTTY) {
+  if (!id && input !== false && process.stdin.isTTY && process.stderr.isTTY) {
     const available = detected.length ? detected : all;
     const prompt = createInterface({ input: process.stdin, output: process.stderr });
     try {
@@ -102,7 +102,7 @@ async function nativeEntry(cli: string, argv: string[], target: Target, name: st
 
 async function change(operation: "add" | "remove", id: string | undefined, opts: Options) {
   checkName(opts.name);
-  const client = await choose(id, operation);
+  const client = await choose(id, operation, opts.input);
   const target = client.targets.find(t => t.scope === (opts.scope ?? "user"));
   if (!target) throw new Error(`Supported scopes for ${client.id}: ${client.targets.map(t => t.scope).join(", ")}.`);
   const original = await contents(target.file);
@@ -123,13 +123,13 @@ async function change(operation: "add" | "remove", id: string | undefined, opts:
   const removeFirst = manual && exists && client.id === "claude-code"
     ? displayCommand(["claude", "mcp", "remove", "--scope", target.scope, opts.name]) : undefined;
   const notice = server?.command === "npx" ? "agentkit-mcp was not found on PATH. Using the npx fallback." : undefined;
-  if (opts.json) printJson({ action, dryRun: !!opts.dryRun, client: client.id, scope: target.scope, name: opts.name, file: target.file, server, removeFirst, command, notice });
+  if (opts.json) printJson({ action, dryRun: !!opts.dryRun, client: client.id, scope: target.scope, name: opts.name, file: target.file, server, removeFirst, command, notice }, opts.plain);
   else {
     console.log(clean(`${opts.dryRun ? "Dry run: " : ""}${action} ${opts.name} (${client.id}, ${target.scope}) in ${target.file}`));
     if (removeFirst) console.log(clean(`Run: ${removeFirst}`));
     if (manual && command) console.log(clean(`Run: ${command}`));
     else if (server) console.log(clean(displayCommand([server.command, ...server.args])));
-    if (notice) console.log(notice);
+    if (notice && !opts.quiet) console.log(notice);
   }
 }
 
@@ -157,7 +157,7 @@ async function status(opts: Options & { url?: string }) {
       }
     }
   }
-  if (opts.json) printJson({ loggedIn, mcpApiKeyConfigured: !!key, name: opts.name, clients: rows });
+  if (opts.json) printJson({ loggedIn, mcpApiKeyConfigured: !!key, name: opts.name, clients: rows }, opts.plain);
   else {
     console.log(`Agentkit login: ${loggedIn ? "credentials configured" : "no credentials configured"}`);
     if (loggedIn && !key) console.log("MCP requires a workspace API key. Only a CLI session is configured.");

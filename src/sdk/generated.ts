@@ -1,6 +1,74 @@
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 // Generated from the pinned OpenAPI snapshot. Do not edit.
 export interface paths {
+    "/auth/device/code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start CLI browser sign-in */
+        post: operations["requestDeviceCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/device/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Poll for CLI browser approval and redeem the device code */
+        post: operations["redeemDeviceCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke the calling API key, regardless of its scopes */
+        delete: operations["revokeCurrentKey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the calling credential's workspace and scopes */
+        get: operations["getCurrentCredential"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/agents/{agentId}/channels": {
         parameters: {
             query?: never;
@@ -3405,6 +3473,57 @@ export interface components {
             conversation_starters: components["schemas"]["InstagramConversationStarters"];
             menu: components["schemas"]["InstagramMenu"];
         };
+        /** @enum {string} */
+        ApiKeyScope: "read" | "write" | "delete" | "export";
+        InsufficientScope: {
+            /** @constant */
+            error: "insufficient_scope";
+            required: components["schemas"]["ApiKeyScope"];
+        };
+        CredentialAccount: {
+            /** Format: uuid */
+            id: string;
+            slug: string;
+            name: string;
+        };
+        DeviceCodeRequest: {
+            client_name: string;
+        };
+        DeviceCode: {
+            device_code: string;
+            user_code: string;
+            /** Format: uri */
+            verification_uri: string;
+            /** Format: uri */
+            verification_uri_complete: string;
+            expires_in: number;
+            interval: number;
+        };
+        DeviceTokenRequest: {
+            device_code: string;
+        };
+        DeviceToken: {
+            api_key: string;
+            key: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+                /** @constant */
+                source: "cli";
+                scopes: components["schemas"]["ApiKeyScope"][];
+            };
+            account: components["schemas"]["CredentialAccount"];
+        };
+        CurrentCredential: {
+            account: components["schemas"]["CredentialAccount"] | null;
+            credential: {
+                /** @enum {string} */
+                source: "manual" | "cli" | "session";
+                key_id: string | null;
+                name: string | null;
+                scopes: components["schemas"]["ApiKeyScope"][];
+            };
+        };
     };
     responses: {
         /** @description The request body, path value, or query value is invalid. */
@@ -3427,14 +3546,14 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description The workspace plan does not permit the request or a quota was reached. */
+        /** @description The workspace plan does not permit the request, a quota was reached, or the calling API key lacks a required scope. */
         Forbidden: {
             headers: {
                 "x-request-id": components["headers"]["RequestId"];
                 [name: string]: unknown;
             };
             content: {
-                "application/json": components["schemas"]["Error"];
+                "application/json": components["schemas"]["Error"] | components["schemas"]["InsufficientScope"];
             };
         };
         /** @description The requested agent or resource was not found. */
@@ -3551,6 +3670,168 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    requestDeviceCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Device and activation codes issued. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceCode"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description Too many codes requested from this IP. */
+            429: {
+                headers: {
+                    /** @description Seconds until another request can be made. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        error: "rate_limited";
+                    };
+                };
+            };
+        };
+    };
+    redeemDeviceCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description Single-use response containing the new workspace API key. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceToken"];
+                };
+            };
+            /** @description The request is pending, polling too quickly, expired, denied or invalid. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        error: "authorization_pending" | "expired_token" | "access_denied" | "invalid_grant";
+                    } | {
+                        /** @constant */
+                        error: "slow_down";
+                        interval: number;
+                    } | components["schemas"]["Error"];
+                };
+            };
+            /** @description The approver is no longer a workspace member. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        error: "access_denied";
+                    };
+                };
+            };
+            /** @description The active API key limit has been reached. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        error: "key_limit_reached";
+                    };
+                };
+            };
+        };
+    };
+    revokeCurrentKey: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Set to session when Authorization contains a Supabase user access JWT. Required when selecting session authentication; omit when using a workspace API key. */
+                "X-Agentkit-Auth"?: components["parameters"]["OptionalSessionAuthMode"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The API key was revoked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The current credential is a session. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        error: "not_an_api_key";
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getCurrentCredential: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Set to session when Authorization contains a Supabase user access JWT. Required when selecting session authentication; omit when using a workspace API key. */
+                "X-Agentkit-Auth"?: components["parameters"]["OptionalSessionAuthMode"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The current workspace and credential metadata. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentCredential"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
     listManagementChannels: {
         parameters: {
             query?: never;

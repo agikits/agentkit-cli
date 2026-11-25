@@ -1,9 +1,7 @@
 # Contract maintenance
 
-`openapi.json` is a snapshot of the product's public specification.
-`provenance.json` records the product commit, source file and SHA-256 of the
-snapshot with LF line endings. It is not a claim that the same commit is
-deployed. `coverage.json` accounts for each REST operation and its SDK/CLI
+`openapi.json` pins the reviewed API contract. `provenance.json` records its
+source and SHA-256 with LF line endings, plus any observed deployment baseline. `coverage.json` accounts for each REST operation and its SDK/CLI
 coverage. Tests exercise every wrapper's route/method.
 
 After reviewing an upstream change, update the snapshot/provenance, run
@@ -46,3 +44,9 @@ matches the reviewed snapshot, and `contracts:live` checks live paths and
 components against that snapshot. While a future candidate has status `pending`,
 the live check compares against its separately reviewed observed baseline. It
 reports drift without asserting that candidate routes are absent from production.
+
+The 0.3.0 candidate extends the November 23 baseline with device code issuance
+and redemption, current credential status, key revocation and scoped-key
+errors. The candidate follows the shared CLI and app auth contract. Mocked HTTP
+tests exercise the four new routes through the CLI. Deployment and authenticated
+runtime acceptance are pending.

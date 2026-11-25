@@ -21,6 +21,22 @@ const urlJob = { jobId: 123, isRetrain: false } satisfies UrlSourceJob;
 const savedContact = { id: "00000000-0000-4000-8000-000000000001", externalId: "demo", name: null, email: null, phone: null, customAttributes: { tier: "test" }, createdAt: 1, updatedAt: 1, lastSeenAt: null } satisfies Contact;
 
 describe("pinned API compatibility", () => {
+  it("validates the browser sign-in and scoped credential contracts", () => {
+    const id = "00000000-0000-4000-8000-000000000001";
+    const deviceCode = "x".repeat(43);
+    const account = { id, slug: "demo", name: "Demo" };
+    const scopes = ["read", "write", "delete", "export"];
+    valid("DeviceCodeRequest", { client_name: "test-host" });
+    valid("DeviceCode", {
+      device_code: deviceCode, user_code: "BCDF-GHJK", expires_in: 600, interval: 5,
+      verification_uri: "https://agentkit.ai/activate",
+      verification_uri_complete: "https://agentkit.ai/activate?code=BCDF-GHJK",
+    });
+    valid("DeviceTokenRequest", { device_code: deviceCode });
+    valid("DeviceToken", { api_key: "test-key", key: { id, name: "CLI · test-host", source: "cli", scopes }, account });
+    valid("CurrentCredential", { account, credential: { source: "session", key_id: null, name: null, scopes } });
+    valid("InsufficientScope", { error: "insufficient_scope", required: "export" });
+  });
   it("validates email inbox responses including discarded review reasons and nullable bodies", () => {
     valid("EmailThreadList", { data: [discardedEmail], pagination: { limit: 20, nextCursor: null, hasMore: false } });
     valid("EmailThreadDetail", { data: emailThread });
@@ -37,7 +53,7 @@ describe("pinned API compatibility", () => {
   it("accounts for every documented operation and every SDK method", () => {
     const declared = Object.entries(spec.paths).flatMap(([path, value]) => Object.entries(value as Record<string, { operationId: string }>).filter(([method]) => ["get", "post", "patch", "delete", "put"].includes(method)).map(([method, op]) => `${op.operationId} ${method.toUpperCase()} ${path}`));
     expect(coverage.map(c => `${c.operationId} ${c.method} ${c.path}`).sort()).toEqual(declared.sort());
-    const methods = Object.getOwnPropertyNames(AgentkitClient.prototype).filter(k => !["constructor", "headers", "lifetime", "request", "streamRequest", "managementRequest", "managementStream", "q", "chatStream", "retryStream"].includes(k));
+    const methods = Object.getOwnPropertyNames(AgentkitClient.prototype).filter(k => !["constructor", "headers", "lifetime", "request", "requestJson", "streamRequest", "managementRequest", "managementStream", "q", "chatStream", "retryStream"].includes(k));
     expect(coverage.flatMap(c => c.sdk ? [c.sdk] : []).sort()).toEqual(methods.sort());
   });
   it("validates email bodies, suppression reasons, unknown historical reasons and reviewed revisions", () => {

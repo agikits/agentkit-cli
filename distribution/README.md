@@ -41,7 +41,7 @@ packages receive OIDC provenance automatically.
 
 `codex/` and `cursor/` each contain a plugin manifest and stdio MCP configuration.
 They use the installed `agentkit-mcp` executable. Install the package
-with `npm install --global @agikits/agentkit`, run `agentkit init --with-token`
+with `npm install --global @agikits/agentkit`, run `agentkit auth login --with-token`
 with the workspace key on stdin, then
 restart the client so its PATH includes the global executable. Local configuration
 is read by the MCP process. Do not put a workspace key in either plugin file.
@@ -58,7 +58,7 @@ files do not meet the hosted ChatGPT submission requirement.
 ## MCP Registry
 
 `server.json` is the finalized identity candidate for `io.github.agikits/agentkit`
-and `@agikits/agentkit@0.2.2`. It is **not published**. Its namespace still needs
+and `@agikits/agentkit@0.3.0`. It is **not published**. Its namespace still needs
 verification by `mcp-publisher` and the repository URL must exist publicly.
 `server.json.template` remains a generic template with deliberate placeholders.
 Do not publish that template. [The Registry quickstart](https://modelcontextprotocol.io/registry/quickstart)
@@ -70,10 +70,10 @@ The [official schema](https://static.modelcontextprotocol.io/schemas/2025-12-11/
 has no dedicated executable override. The candidate uses `runtimeHint: "npx"`
 and a fixed `mcp` package argument. The package's default `agentkit` executable
 provides this subcommand using the same MCP implementation as `agentkit-mcp`.
-The resulting launch command is:
+After 0.3.0 is published to npm, launch it with:
 
 ```sh
-npx --yes @agikits/agentkit@0.2.2 mcp
+npx --yes @agikits/agentkit@0.3.0 mcp
 ```
 
 This uses npm's inferred `agentkit` bin and selects MCP mode explicitly.
@@ -84,8 +84,8 @@ leaves default runtime and package inference to clients. Before publication,
 exercise discovery and launch in each supported registry client. Metadata
 validation does not establish publication or client approval.
 
-Checked on 2026-10-12. `server.json` passes the live official JSON Schema using
-Ajv with format validation. Its name, package identity and version match
+The metadata passed the official JSON Schema check on 2026-10-12 using Ajv
+with format validation. The candidate's name, package identity and version match
 `package.json`. The namespace verification remains a publishing prerequisite.
 Both compatibility manifests resolve to existing local MCP config files with
 `command: "agentkit-mcp"`, no write flag and no embedded credential. These checks

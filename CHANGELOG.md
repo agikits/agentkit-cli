@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0 (unreleased)
+
+- Add browser approval, hidden API-key entry and stdin login under `agentkit auth login`. Add credential status and server-side key revocation. Keep `init` and `logout` as hidden aliases.
+- Add `agentkit api` for JSON requests to v2 paths and report the required scope when a key lacks permission.
+- Make project arguments optional when `AGENTKIT_AGENT_ID` or a default saved by `agentkit config set agent` supplies the agent.
+- Add global `--plain`, `--quiet` and `--no-input` flags.
+
 ## 0.2.2
 
 - Add `agentkit mcp add`, `remove` and `status` for local MCP clients. Registrations reuse the CLI login, support read-only or explicitly write-enabled access, and keep a backup when editing client configuration.

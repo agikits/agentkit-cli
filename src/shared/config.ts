@@ -3,8 +3,15 @@ import { DEFAULT_BASE_URL } from "../sdk/client.js";
 import { validateBaseUrl } from "../sdk/url.js";
 import { configDir, isRecord, readJsonFile, writeJsonFile } from "./storage.js";
 
-export type Config = { url?: string; key?: string; keyUrl?: string; sessionToken?: string; sessionUrl?: string };
-export type ResolvedConfig = { url: string; key: string; sessionToken?: string };
+export type Config = { url?: string; key?: string; keyUrl?: string; sessionToken?: string; sessionUrl?: string; agent?: string };
+type CredentialLocation = "flag" | "env" | "config";
+export type ResolvedConfig = {
+  url: string;
+  key: string;
+  keyLocation?: CredentialLocation;
+  sessionToken?: string;
+  sessionLocation?: CredentialLocation;
+};
 const secrets = new Set<string>();
 export function rememberKey(key: string): string {
   if (key) secrets.add(key);
@@ -19,14 +26,15 @@ export function configPath(): string { return path.join(configDir(), "config.jso
 export async function readConfig(): Promise<Config> {
   const value = await readJsonFile(configPath());
   if (value === undefined) return {};
-  if (!isRecord(value) || Object.keys(value).some(k => !["url", "key", "keyUrl", "sessionToken", "sessionUrl"].includes(k)) ||
+  if (!isRecord(value) || Object.keys(value).some(k => !["url", "key", "keyUrl", "sessionToken", "sessionUrl", "agent"].includes(k)) ||
       (value.key !== undefined && typeof value.key !== "string") ||
       (value.url !== undefined && typeof value.url !== "string") ||
       (value.keyUrl !== undefined && typeof value.keyUrl !== "string") ||
       (value.sessionToken !== undefined && typeof value.sessionToken !== "string") ||
       (value.sessionUrl !== undefined && typeof value.sessionUrl !== "string") ||
-      (value.sessionToken !== undefined && value.sessionUrl === undefined)) {
-    throw new Error("Invalid Agentkit configuration; expected optional key and url strings.");
+      (value.sessionToken !== undefined && value.sessionUrl === undefined) ||
+      (value.agent !== undefined && (typeof value.agent !== "string" || !value.agent.trim()))) {
+    throw new Error("Invalid Agentkit configuration; expected optional strings for credentials, URL and default agent.");
   }
   if (typeof value.key === "string") rememberKey(value.key);
   if (typeof value.sessionToken === "string") rememberKey(value.sessionToken);
@@ -50,22 +58,26 @@ export async function writeConfig(config: Config): Promise<void> {
 }
 export async function resolveConfig(
   options: { url?: string; key?: string } = {},
-  { requireKey = true, allowSession = false, ignoreCredentials = false }: { requireKey?: boolean; allowSession?: boolean | "optional"; ignoreCredentials?: boolean } = {},
+  { requireKey = true, allowSession = false, ignoreCredentials = false }: { requireKey?: boolean; allowSession?: boolean | "optional" | "fallback"; ignoreCredentials?: boolean } = {},
 ): Promise<ResolvedConfig> {
   const saved = await readConfig();
   const url = validateBaseUrl(options.url || process.env.AGENTKIT_URL || saved.url || DEFAULT_BASE_URL);
   if (ignoreCredentials) return { url, key: "" };
   const explicitKey = options.key || process.env.AGENTKIT_API_KEY || process.env.AGENTKIT_KEY;
-  const sessionToken = allowSession ? rememberKey(process.env.AGENTKIT_SESSION_TOKEN || saved.sessionToken || "") : "";
+  const savedKey = saved.keyUrl === url ? saved.key : undefined;
+  const useSession = allowSession && (allowSession !== "fallback" || !(explicitKey || savedKey));
+  const sessionToken = useSession ? rememberKey(process.env.AGENTKIT_SESSION_TOKEN || saved.sessionToken || "") : "";
   if (sessionToken && !process.env.AGENTKIT_SESSION_TOKEN && saved.sessionUrl !== url) throw new Error("Saved session belongs to a different origin. Re-authenticate for this origin or provide AGENTKIT_SESSION_TOKEN explicitly.");
   const wrongSavedKeyOrigin = !explicitKey && !!saved.key && saved.keyUrl !== url;
   if (wrongSavedKeyOrigin && (requireKey || !sessionToken)) throw new Error("Saved API key belongs to a different origin. Supply credentials for this origin explicitly.");
   // A correctly bound session can serve management without carrying an unrelated saved key.
-  const key = rememberKey(explicitKey || (wrongSavedKeyOrigin ? "" : saved.key) || "");
-  if (requireKey && !key) throw new Error("Missing Agentkit API key. Set AGENTKIT_API_KEY or run agentkit init --with-token with a token on stdin.");
-  if (allowSession) {
-    if (allowSession === true && !key && !sessionToken) throw new Error("Missing credentials. Set AGENTKIT_API_KEY or AGENTKIT_SESSION_TOKEN.");
-    return { url, key, ...(sessionToken ? { sessionToken } : {}) };
-  }
-  return { url, key };
+  const key = rememberKey(explicitKey || savedKey || "");
+  if (requireKey && !key) throw new Error("Missing Agentkit API key. Set AGENTKIT_API_KEY or run agentkit auth login.");
+  if (allowSession === true && !key && !sessionToken) throw new Error("Missing credentials. Set AGENTKIT_API_KEY or AGENTKIT_SESSION_TOKEN.");
+  return {
+    url,
+    key,
+    ...(key && { keyLocation: options.key ? "flag" : explicitKey ? "env" : "config" }),
+    ...(sessionToken && { sessionToken, sessionLocation: process.env.AGENTKIT_SESSION_TOKEN ? "env" : "config" }),
+  };
 }

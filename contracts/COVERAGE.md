@@ -4,6 +4,10 @@ Reviewed against the pinned specification in `contracts/provenance.json`. A comm
 
 | Method and path | SDK method | CLI |
 | --- | --- | --- |
+| `POST /auth/device/code` | | `auth login --browser` |
+| `POST /auth/device/token` | | `auth login --browser` |
+| `DELETE /auth/key` | | `auth logout` |
+| `GET /me` | | `auth status` |
 | `GET /health` | `health` | `health` |
 | `GET /agents` | `listAgents` | `agents list` |
 | `POST /agents` | `createAgent` | `agents create` |

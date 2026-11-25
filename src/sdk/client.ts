@@ -193,6 +193,18 @@ export class AgentkitClient {
     } finally { lifetime.dispose(); }
   }
 
+  /** Request a JSON response from a path within the v2 API. */
+  requestJson<T = unknown>(method: string, path: string, body?: unknown, query: Iterable<[string, string]> = []): Promise<T> {
+    const url = new URL(path, this.baseUrl);
+    const pathname = path.split(/[?#]/, 1)[0]!;
+    if (!path.startsWith("/api/v2/") || !url.pathname.startsWith("/api/v2/") ||
+        url.origin !== this.baseUrl || path.includes("#") || /[\\\s]|%2f|%5c/i.test(pathname)) {
+      throw new Error("API path must stay under /api/v2/ and cannot contain a fragment.");
+    }
+    for (const [key, value] of query) url.searchParams.append(key, value);
+    return this.request<T>(method, url.pathname + url.search, body, this.sessionToken ? "session" : "key");
+  }
+
   private async *streamRequest(path: string, body: unknown, mode: "key" | "management" | "session" = "key"): AsyncGenerator<StreamEvent> {
     const lifetime = this.lifetime();
     try {
