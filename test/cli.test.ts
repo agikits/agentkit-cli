@@ -363,7 +363,7 @@ describe("installed-style executable", () => {
     const bad = await bin(["nonsense", "--json"]);
     expect(bad.code).toBe(1); expect(JSON.parse(bad.stderr).error.code).toBe("CLI_ERROR"); expect(requests).toHaveLength(0);
   });
-  it("treats bare and group help as success and describes every group", async () => {
+  it("treats bare and group help as success and describes public groups", async () => {
     for (const args of [[], ["settings"], ["actions"], ["secrets"], ["backstage"]]) {
       const result = await bin(args);
       expect(result.code, result.stderr).toBe(0);
@@ -372,7 +372,14 @@ describe("installed-style executable", () => {
     }
     const help = (await bin(["--help"])).stdout;
     expect(help).toMatch(/settings\s+Read and change AI.*\(ai, model, instructions/);
-    expect(help).toMatch(/backstage\s+Backstage sessions/);
+    expect(help).not.toMatch(/backstage|widgets|^\s+widget(?:[ -]|$)/im);
+    expect(help).not.toMatch(/reply-address|automated-senders|\bforward\b/);
+
+    for (const [group, verb] of [["widgets", "publish"], ["backstage", "overview"]] as const) {
+      const direct = await bin([group, "--help"]);
+      expect(direct.code, direct.stderr).toBe(0);
+      expect(direct.stdout).toContain(verb);
+    }
     expect(requests).toHaveLength(0);
   });
   it("prints a training message when no web sources need a crawl and strips control characters from tables", async () => {
@@ -405,7 +412,16 @@ describe("installed-style executable", () => {
     const help = (await bin(["--help"])).stdout;
     for (const name of ["create-agent", "channel-configure", "set-instructions", "ig-automation"]) expect(help).not.toContain(name);
     expect(help).toContain("emails"); expect(help).toContain("email");
-    expect((await bin(["channels", "--help"])).stdout).toContain("configure");
+    const channels = (await bin(["channels", "--help"])).stdout;
+    expect(channels).toContain("configure");
+    expect(channels).toContain("center-stage");
+    expect(channels).not.toMatch(/^\s+(enable|disable)\b/m);
+    const email = (await bin(["email", "--help"])).stdout;
+    expect(email).not.toMatch(/settings|reply-address|automated-senders|\[command\]/);
+    const inbox = (await bin(["emails", "--help"])).stdout;
+    expect(inbox).not.toMatch(/^\s+(draft|forward)\b/m);
+    expect(inbox).toMatch(/^\s+drafts\b/m);
+    expect(inbox).toMatch(/^\s+send\b/m);
     const legacy = await bin(["channel", AGENT, "email"], "", { AGENTKIT_SESSION_TOKEN: "session" });
     expect(legacy.code, legacy.stderr).toBe(0);
     expect(requests.at(-1)?.url).toBe(`/api/v2/agents/${AGENT}/channels/email/config`);
@@ -641,6 +657,18 @@ describe("installed-style executable", () => {
   it("rejects unknown email statuses and page limits before making requests", async () => {
     expect((await bin(["emails", AGENT, "--status", "pending"])).code).toBe(1);
     for (const limit of ["0", "2.5", "101"]) expect((await bin(["emails", AGENT, "--limit", limit])).code).toBe(1);
+    expect(requests).toHaveLength(0);
+  });
+  it("limits the offline capability catalogue to released commands", async () => {
+    const result = await bin(["capabilities", "--json"]);
+    expect(result.code, result.stderr).toBe(0);
+    expect(result.stdout).not.toMatch(/widgets|backstage/i);
+    const rows = JSON.parse(result.stdout).capabilities as { commands: string[] }[];
+    const commands = rows.flatMap(row => row.commands);
+    for (const hidden of ["emails draft", "emails forward", "email settings", "email automated-senders", "email reply-address", "channels enable", "channels disable"]) {
+      expect(commands).not.toContain(hidden);
+    }
+    expect(commands).toEqual(expect.arrayContaining(["channels center-stage", "emails drafts edit", "emails send"]));
     expect(requests).toHaveLength(0);
   });
   it("lists email commands in the offline capability catalogue", async () => {

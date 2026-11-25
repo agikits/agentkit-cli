@@ -1,6 +1,6 @@
 # API coverage
 
-Reviewed against the pinned specification in `contracts/provenance.json`. A command listed here is not proof of a connected channel or live deployment.
+Released CLI and SDK operations, reviewed against the pinned specification in `contracts/provenance.json`. A command listed here is not proof of a connected channel or live deployment.
 
 | Method and path | SDK method | CLI |
 | --- | --- | --- |
@@ -70,24 +70,10 @@ Reviewed against the pinned specification in `contracts/provenance.json`. A comm
 | `PATCH /agents/{agentId}/actions/{actionId}/status` | `setCustomApiActionStatus` | `actions enable` / `disable` |
 | `GET /agents/{agentId}/secrets` | `listAgentSecrets` | `secrets list` |
 | `PUT/DELETE /agents/{agentId}/secrets/{name}` | `setAgentSecret` / `deleteAgentSecret` | `secrets set` / `delete` |
-| `GET/POST /agents/{agentId}/widgets` | `listWidgets` / `createWidget` | `widgets list` / `create` |
-| `GET/PATCH/DELETE /agents/{agentId}/widgets/{widgetId}` | `getWidget` / `saveWidgetDraft` / `deleteWidget` | `widgets get` / `save` / `delete` |
-| `PATCH /agents/{agentId}/widgets/{widgetId}/status` | `setWidgetStatus` | `widgets status` |
-| `POST /agents/{agentId}/widgets/{widgetId}/publish` | `publishWidget` | `widgets publish --yes` |
-| `GET /agents/{agentId}/widgets/{widgetId}/versions[/{versionId}]` | `listWidgetVersions` / `getWidgetVersion` | `widgets versions` |
-| `POST /agents/{agentId}/widgets/{widgetId}/duplicate` | `duplicateWidget` | `widgets duplicate` |
-| `GET /agents/{agentId}/widgets/{widgetId}/export` | `exportWidget` | `widgets export` |
-| `POST /agents/{agentId}/widgets/import` | `importWidget` | `widgets import` |
-| `GET /agents/{agentId}/backstage/overview` | `getBackstageOverview` | `backstage overview` |
-| `GET/DELETE /agents/{agentId}/backstage/runs/{runId}` | Not wrapped | Not wrapped |
-| `GET /agents/{agentId}/backstage/sessions[/{sessionId}]` | `listBackstageSessions` / `getBackstageSession` | `backstage sessions` / `session` |
-| `DELETE /agents/{agentId}/backstage/sessions/{sessionId}` | `deleteBackstageSession` | `backstage delete-session --yes` |
-| `GET/POST /agents/{agentId}/backstage/changes/{changeId}` | `getBackstageChange` / `decideBackstageChange` | `backstage change` / `decide` |
-| `POST /agents/{agentId}/backstage/chat` | `chatBackstage` | `backstage chat` |
 
 `chatStream` and `retryStream` use the same operations as their nonstreaming counterparts. Signed file upload and registration are separate commands so callers control the binary transfer.
 
-Email setup and writes are session-only. Inbox reads also accept account API keys.
+Workspace keys support inbox reads, discard, restore and reviewed draft edits and sends.
 These operations target the candidate server revision.
 
 | Method and path | SDK method | CLI |
@@ -97,23 +83,10 @@ These operations target the candidate server revision.
 | `GET /agents/{agentId}/emails/{threadId}` | `getEmail` | `emails get` |
 | `POST /agents/{agentId}/emails/{threadId}/discard` | `discardEmail` | `emails discard` |
 | `POST /agents/{agentId}/emails/{threadId}/restore` | `restoreEmail` | `emails restore` |
-| `POST /agents/{agentId}/emails/{threadId}/draft` | `draftEmail` | `emails draft` |
-| `POST /agents/{agentId}/emails/messages/{messageId}/forward` | `forwardEmail` | `emails forward` |
 | `GET /agents/{agentId}/emails/drafts` | `listEmailDrafts` | `emails drafts list` |
 | `GET /agents/{agentId}/emails/drafts/{draftId}` | `getEmailDraft` | `emails drafts get` |
 | `PATCH /agents/{agentId}/emails/drafts/{draftId}` | `editEmailDraft` | `emails drafts edit` |
 | `POST /agents/{agentId}/emails/drafts/{draftId}/send` | `sendEmailDraft` | `emails send` |
-| `POST /agents/{agentId}/channels/email/enable` | `enableEmailChannel` | `channels enable` |
-| `POST /agents/{agentId}/channels/email/disable` | `disableEmailChannel` | `channels disable` |
-| `GET /agents/{agentId}/email/settings` | `getEmailSettings` | `email settings` |
-| `PATCH /agents/{agentId}/email/settings` | `updateEmailSettings` | `email settings` |
-| `GET /agents/{agentId}/email/reply-address` | `getEmailReplyAddress` | `email reply-address status` |
-| `PUT /agents/{agentId}/email/reply-address` | `addEmailReplyAddress` | `email reply-address add` |
-| `DELETE /agents/{agentId}/email/reply-address` | `removeEmailReplyAddress` | `email reply-address remove` |
-| `POST /agents/{agentId}/email/reply-address/verify` | `verifyEmailReplyAddress` | `email reply-address verify` |
-| `GET /agents/{agentId}/email/automated-senders` | `listEmailAutomatedSenders` | `email automated-senders list` |
-| `POST /agents/{agentId}/email/automated-senders` | `addEmailAutomatedSender` | `email automated-senders add` |
-| `DELETE /agents/{agentId}/email/automated-senders` | `removeEmailAutomatedSender` | `email automated-senders remove` |
 
 Email inbox thread, message and draft reads accept account API keys or explicit
 user sessions. Flat `emails <project>` and `email <project> <thread-id>` provide

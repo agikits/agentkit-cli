@@ -28,4 +28,4 @@ named secret references and saved sample response. Pass the loaded `updatedAt`
 to update, enable, disable and delete. Use `secrets set` with stdin or `--env`.
 Never put a secret value in an argument, file, transcript or report.
 
-For feature workflows, read the knowledge, conversations, channels, Widgets or Backstage skill.
+For feature workflows, read the knowledge, conversations or channels skill.
