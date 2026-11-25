@@ -63,7 +63,7 @@ it.each([true, false])("serves useful read tools with no HTTP sessions, modern=%
   const { connect, calls } = setup();
   const { client, responses } = await connect("tenant-a", modern);
   const tools = await client.listTools();
-  expect(tools.tools).toHaveLength(11);
+  expect(tools.tools).toHaveLength(16);
   expect(tools.tools.every(tool => tool.annotations?.readOnlyHint === true)).toBe(true);
   const result = await client.callTool({ name: "agents_get", arguments: { agentId: A } });
   expect(JSON.stringify(result)).toContain(A);
@@ -147,7 +147,7 @@ it.each([true, false])("installed stdio entry speaks modern=%s with protocol-onl
       env: { PATH: process.env.PATH ?? "", AGENTKIT_CONFIG_DIR: dir, AGENTKIT_API_KEY: "synthetic-test-key" },
     }));
     const tools = await client.listTools();
-    expect(tools.tools).toHaveLength(11);
+    expect(tools.tools).toHaveLength(16);
     expect(tools.tools.every(tool => tool.annotations?.readOnlyHint)).toBe(true);
   } finally { await client.close(); await fs.rm(dir, { recursive: true, force: true }); }
 });
@@ -261,7 +261,7 @@ it("takes scope names from the host and advertises them in metadata and the 401"
   await client.connect(new StreamableHTTPClientTransport(new URL(RESOURCE), { requestInit: { headers: { authorization: "Bearer grant" } },
     fetch: async (input, init) => handler.fetch(new Request(input, init)) }));
   const tools = await client.listTools();
-  expect(tools.tools).toHaveLength(11);
+  expect(tools.tools).toHaveLength(16);
   expect(tools.tools.every(tool => JSON.stringify(tool._meta).includes('"read"'))).toBe(true);
 });
 
@@ -344,3 +344,120 @@ it("refuses JSON-RPC batches only after authentication and admission", async () 
   });
   expect(calls).toHaveLength(0);
 });
+
+const expectedTools = {
+  read: ["whoami", "agents_list", "agents_get", "sources_list", "sources_get", "conversations_list", "conversations_get",
+    "contacts_list", "leads_list", "settings_ai_get", "settings_design_get", "settings_security_get",
+    "settings_notifications_get", "settings_training_get", "training_status", "channels_list"],
+  write: ["agents_create", "agents_update", "sources_add_text", "sources_add_qna", "sources_add_url", "sources_update",
+    "settings_instructions_update", "settings_ai_update", "settings_design_update", "settings_security_update",
+    "settings_notifications_update", "settings_training_update", "actions_toggle", "train_start", "chat"],
+  delete: ["sources_delete"],
+  export: ["conversations_export"],
+};
+const destructive = new Set(["sources_delete", "conversations_export", "settings_instructions_update", "settings_ai_update",
+  "settings_security_update", "sources_update", "agents_update", "train_start", "actions_toggle"]);
+
+async function toolClient(scopes: string[], agentIds?: string[]) {
+  const requests: { path: string; method: string; body?: unknown }[] = [];
+  const { handler } = hosted(scopes, { authorize: async () => ({
+    subject: "subject", workspaceId: "workspace", expiresAt: Date.now() / 1000 + 3600, scopes, agentIds,
+    createClient: signal => new AgentkitClient({ key: "test-key", signal, fetch: async (input, init) => {
+      const url = new URL(String(input));
+      requests.push({ path: url.pathname + url.search, method: init?.method ?? "GET",
+        body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      return Response.json({ data: { id: B }, id: B, actionName: "Toggle me", enabled: true, updatedAt: "now", apiRequest: "private action configuration" });
+    } }),
+  }) });
+  const client = new Client({ name: "tools-test", version: "1" });
+  clients.push(client);
+  await client.connect(new StreamableHTTPClientTransport(new URL(RESOURCE), { requestInit: { headers: { authorization: "Bearer grant" } },
+    fetch: async (input, init) => handler.fetch(new Request(input, init)) }));
+  return { client, requests };
+}
+
+it.each([["read"], ["read", "write"], ["read", "delete"], ["read", "export"], Object.keys(expectedTools)])(
+  "advertises exactly the granted tools and their annotations for %j", async (...scopes) => {
+    const { client } = await toolClient(scopes);
+    const { tools } = await client.listTools();
+    const visible = Object.entries(expectedTools).filter(([scope]) => scopes.includes(scope)).flatMap(([, names]) => names);
+    expect(tools.map(t => t.name).sort()).toEqual(visible.sort());
+    for (const tool of tools) {
+      expect(tool.annotations?.readOnlyHint, tool.name).toBe(expectedTools.read.includes(tool.name));
+      expect(tool.annotations?.destructiveHint, tool.name).toBe(destructive.has(tool.name));
+      if (tool.name === "train_start") expect(tool.description).toMatch(/re-crawls web sources and spends training credits/i);
+      if (tool.name === "chat") expect(tool.description).toContain("spends message credits");
+    }
+  });
+
+const timestamp = "2026-11-25T12:00:00Z";
+type RouteCase = [tool: string, args: Record<string, unknown>, method: string, suffix: string, body?: unknown];
+const routes: RouteCase[] = [
+  ["sources_get", { documentId: B }, "GET", `/sources/${B}`],
+  ["contacts_list", { cursor: "next" }, "GET", "/contacts?limit=10&cursor=next"],
+  ["leads_list", { limit: 2, createdAfter: "2026-11-24" }, "GET", "/leads?limit=2&createdAfter=2026-11-24"],
+  ["channels_list", {}, "GET", "/channels"],
+  ["agents_update", { name: "Renamed" }, "PATCH", "", { name: "Renamed" }],
+  ["sources_add_qna", { title: "FAQ", questions: ["Q"], answer: "A" }, "POST", "/sources/qna", { title: "FAQ", questions: ["Q"], answer: "A" }],
+  ["sources_add_url", { url: "example.com" }, "POST", "/sources/url", { url: "example.com" }],
+  ["sources_update", { documentId: B, answer: "A" }, "PATCH", `/sources/${B}`, { answer: "A" }],
+  ["sources_update", { documentId: B, content: "Text" }, "PATCH", `/sources/${B}`, { content: "Text" }],
+  ["sources_update", { documentId: B, title: "Rename" }, "PATCH", `/sources/${B}`, { title: "Rename" }],
+  ["settings_ai_update", { instructionsPrompt: "p" }, "PATCH", "/settings/ai", { instructionsPrompt: "p" }],
+  ["settings_design_update", { appearance: "Dark" }, "PATCH", "/settings/design", { appearance: "Dark" }],
+  ["settings_security_update", { isPrivate: false }, "PATCH", "/settings/security", { isPrivate: false }],
+  ["settings_notifications_update", { dailyEmails: false }, "PATCH", "/settings/notifications", { dailyEmails: false }],
+  ["settings_training_update", { autoRetrainEnabled: true }, "PATCH", "/settings/training", { autoRetrainEnabled: true }],
+  ["actions_toggle", { actionId: B, expectedUpdatedAt: timestamp, enabled: true }, "PATCH", `/actions/${B}/status`, { expectedUpdatedAt: timestamp, enabled: true }],
+  ["train_start", {}, "POST", "/train"],
+  ["chat", { message: "Hi" }, "POST", "/chat", { message: "Hi", channel: "playground", stream: false }],
+  ["sources_delete", { documentId: B }, "DELETE", `/sources/${B}`],
+  ["conversations_export", { cursor: "next", limit: 1, source: "widget" }, "GET", "/conversations/export?limit=1&cursor=next&source=widget"],
+];
+
+it("checks every expanded agent tool against the allowlist and dispatches the exact SDK request", async () => {
+  const { client, requests } = await toolClient(Object.keys(expectedTools), [A]);
+  const { tools } = await client.listTools();
+  expect(tools.map(t => t.name)).not.toContain("agents_create");
+  expect((await client.callTool({ name: "whoami", arguments: {} })).isError).not.toBe(true);
+  expect(requests.pop()?.path).toBe("/api/v2/me");
+  for (const [name, args, method, suffix, body] of routes) {
+    const denied = await client.callTool({ name, arguments: { ...args, agentId: B } });
+    expect(JSON.stringify(denied), name).toContain("AGENT_ACCESS_DENIED");
+    expect(requests, name).toHaveLength(0);
+    const result = await client.callTool({ name, arguments: { ...args, agentId: A } });
+    expect(result.isError, JSON.stringify(result.content)).not.toBe(true);
+    if (name === "actions_toggle") expect(JSON.stringify(result)).not.toContain("private action configuration");
+    expect(requests.pop(), name).toEqual({ path: `/api/v2/agents/${A}${suffix}`, method, body });
+  }
+});
+
+it("rejects empty and mixed source patches before making an upstream request", async () => {
+  const { client, requests } = await toolClient(["read", "write"]);
+  for (const patch of [{}, { content: "x", answer: "x" }, { content: "x", questions: ["q"] }, { unknown: true }]) {
+    expect((await client.callTool({ name: "sources_update", arguments: { agentId: A, documentId: B, ...patch } })).isError).toBe(true);
+  }
+  expect(requests).toHaveLength(0);
+});
+
+it.each([["sources_delete", "delete", "export"], ["conversations_export", "export", "delete"]])(
+  "returns an insufficient_scope HTTP challenge for %s even with write and the other sensitive grant", async (name, required, other) => {
+    const { post, calls } = hosted(["read", "write", other]);
+    const response = await post({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: { agentId: A } } });
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: "insufficient_scope", required });
+    expect(response.headers.get("www-authenticate")).toContain(`error="insufficient_scope", scope="${required}"`);
+    expect(calls).toEqual([]);
+  });
+
+it.each([["--allow-writes", "write"], ["--allow-delete", "delete"], ["--allow-export", "export"]] as const)(
+  "stdio %s grants only its matching access level", async (flag, scope) => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agentkit-grants-"));
+    const client = new Client({ name: "stdio-scope", version: "1" });
+    try {
+      await client.connect(new StdioClientTransport({ command: process.execPath,
+        args: ["dist/cli/index.js", "mcp", flag], env: { AGENTKIT_CONFIG_DIR: dir, AGENTKIT_API_KEY: "test-key" } }));
+      const { tools } = await client.listTools();
+      expect(tools.map(t => t.name).sort()).toEqual([...expectedTools.read, ...expectedTools[scope]].sort());
+    } finally { await client.close(); await fs.rm(dir, { recursive: true, force: true }); }
+  });

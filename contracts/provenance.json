@@ -1,11 +1,11 @@
 {
-  "productCommit": "76cec23a98bc81876c2ccf8007daaf9bc335870b",
+  "productCommit": "26436495cda7f56be563be3caf5bb87f3cfa4585",
   "source": "apps/chatbots/app/api/v2/_lib/openapi/spec.ts",
-  "sha256": "7293b68f7688c2b170e7f4cb7897d4ecba5491bcc57e3330a65dbc723949ebdd",
+  "sha256": "2574195be779c2f2b6a2a6b5143d95c80103bf23ec7a44b8c9404e0edf861623",
   "deploymentStatus": "pending",
   "liveBaseline": {
     "path": "deployed-openapi.json",
-    "sha256": "94c90ddf24dc0143e0a1f2a67f86d4920bce7011876939988d17b45bcbf5c412"
+    "sha256": "9bc3339d0f106e1b8d43e67f1f68fa84e15ca3ecff5f3883a65a7705cda2c08e"
   },
   "playgroundChange": {
     "productBranch": "sideplan/cli-playground-chats",
@@ -25,19 +25,11 @@
   "authenticatedRuntimeAcceptance": "pending",
   "liveObservation": {
     "url": "https://agentkit.ai/openapi.json",
-    "observedAt": "2026-11-23T18:02:26Z",
-    "sha256": "94c90ddf24dc0143e0a1f2a67f86d4920bce7011876939988d17b45bcbf5c412",
-    "rawResponseSha256": "394fbc01321501e1136119d4453659bf20b39f4d0aaf1b441833952eb6ae23b7",
-    "verification": "Entire parsed published specification equals the reviewed snapshot, observed after product commit 76cec23a (PR #813) deployed. Authenticated runtime acceptance remains pending.",
-    "sourceModules": [
-      "apps/chatbots/app/api/v2/_lib/openapi/spec.ts",
-      "apps/chatbots/app/api/v2/_lib/openapi/management-spec.ts",
-      "apps/chatbots/app/api/v2/_lib/openapi/email-spec.ts",
-      "apps/chatbots/app/api/v2/_lib/schemas/email.ts",
-      "apps/chatbots/app/[locale]/home/[account]/(dashboard)/chatbots/[chatbot]/_lib/schema/ai-settings.schema.ts"
-    ],
-    "productCommit": "76cec23a98bc81876c2ccf8007daaf9bc335870b",
-    "reviewedProductCommit": "76cec23a98bc81876c2ccf8007daaf9bc335870b"
+    "observedAt": "2026-11-25T19:16:13.890817+00:00",
+    "sha256": "9bc3339d0f106e1b8d43e67f1f68fa84e15ca3ecff5f3883a65a7705cda2c08e",
+    "rawResponseSha256": "13486b4e5d691f3b85a379d44f992b7f4cdc6b8e80a6a7f518f211ce6e0ec377",
+    "verification": "Entire parsed published specification equals the product source at the recorded commit.",
+    "productCommit": "bf248c7659399f911d6d485985ef1703f0c2917e"
   },
   "uploadReservationChange": {
     "productPullRequest": "https://github.com/agikits/agentkit/pull/813",
@@ -48,8 +40,14 @@
   "cliAuthChange": {
     "source": "CLI 0.3.0 and app shared Part A API contract",
     "baseProductCommit": "76cec23a98bc81876c2ccf8007daaf9bc335870b",
-    "deploymentStatus": "pending",
+    "deploymentStatus": "schema-observed",
     "authenticatedRuntimeAcceptance": "pending",
     "scope": "CLI device authorization, credential status, key revocation and scoped API key errors."
+  },
+  "sourceEditChange": {
+    "productPullRequest": "https://github.com/agikits/agentkit/pull/830",
+    "productCommit": "26436495cda7f56be563be3caf5bb87f3cfa4585",
+    "deploymentStatus": "pending",
+    "authenticatedRuntimeAcceptance": "pending"
   }
 }

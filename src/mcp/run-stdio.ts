@@ -4,7 +4,7 @@ import { AGENT_ID } from "../shared/project.js";
 import { resolveConfig } from "../shared/config.js";
 import { createAgentkitMcpServer, MCP_READ_SCOPE, MCP_WRITE_SCOPE } from "./server.js";
 
-export type StdioOptions = { url?: string; allowWrites?: boolean; agent?: string[] };
+export type StdioOptions = { url?: string; allowWrites?: boolean; allowDelete?: boolean; allowExport?: boolean; agent?: string[] };
 
 /** Shared implementation for agentkit-mcp and the npm-default agentkit mcp command. */
 export async function runStdio(options: StdioOptions): Promise<void> {
@@ -12,7 +12,9 @@ export async function runStdio(options: StdioOptions): Promise<void> {
   if (options.agent?.some(id => !AGENT_ID.test(id))) throw new Error("--agent requires UUIDs.");
   const serving = serveStdio(() => createAgentkitMcpServer({
     createClient: signal => new AgentkitClient({ key: config.key, baseUrl: config.url, signal, maxResponseBytes: 512 * 1024 }),
-    scopes: [MCP_READ_SCOPE, ...(options.allowWrites ? [MCP_WRITE_SCOPE] : [])],
+    scopeNames: { read: MCP_READ_SCOPE, write: MCP_WRITE_SCOPE, delete: "agentkit:delete", export: "agentkit:export" },
+    scopes: [MCP_READ_SCOPE, ...(options.allowWrites ? [MCP_WRITE_SCOPE] : []),
+      ...(options.allowDelete ? ["agentkit:delete"] : []), ...(options.allowExport ? ["agentkit:export"] : [])],
     agentIds: options.agent, sensitiveValues: [config.key],
   }), { transport: new StdioServerTransport(process.stdin, process.stdout, { maxBufferSize: 128 * 1024 }), maxSubscriptions: 0 });
   const stop = () => { void serving.close().catch(() => { process.exitCode = 1; }); };

@@ -524,3 +524,30 @@ function jsonResponse(body: unknown, status = 200): Response {
     headers: { "content-type": "application/json" },
   });
 }
+
+it("reads and patches one source with encoded IDs and unwraps its data", async () => {
+  const doc = { id: "doc/1", title: "FAQ", sourceType: "qna_entry", content: "Q&A", questions: ["When?"], answer: "Now" };
+  const { fetch, calls } = fakeFetch(() => Response.json({ data: doc }));
+  const client = new AgentkitClient({ key: "workspace-key", fetch });
+  expect(await client.getSource("my agent", doc.id)).toEqual(doc);
+  expect(await client.updateSource("my agent", doc.id, { questions: doc.questions })).toEqual(doc);
+  expect(calls.map(c => [c.url, c.init.method, c.init.body])).toEqual([
+    ["https://agentkit.ai/api/v2/agents/my%20agent/sources/doc%2F1", "GET", undefined],
+    ["https://agentkit.ai/api/v2/agents/my%20agent/sources/doc%2F1", "PATCH", JSON.stringify({ questions: doc.questions })],
+  ]);
+});
+
+it("returns the raw workspace credential identity and toggles an action with a key", async () => {
+  const identity = { account: null, credential: { source: "cli", scopes: ["write"] } };
+  const { fetch, calls } = fakeFetch(() => Response.json(identity));
+  const client = new AgentkitClient({ key: "workspace-key", fetch });
+  expect(await client.whoami()).toEqual(identity);
+  await client.setCustomApiActionStatus("a", "act", { enabled: false, expectedUpdatedAt: "2026-11-25T12:00:00Z" });
+  expect(calls.map(c => [new URL(c.url).pathname, c.init.method])).toEqual([
+    ["/api/v2/me", "GET"], ["/api/v2/agents/a/actions/act/status", "PATCH"],
+  ]);
+  for (const { init } of calls) {
+    expect(new Headers(init.headers).get("authorization")).toBe("Bearer workspace-key");
+    expect(new Headers(init.headers).has("x-agentkit-auth")).toBe(false);
+  }
+});

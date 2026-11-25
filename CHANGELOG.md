@@ -1,6 +1,12 @@
 # Changelog
 
-## 0.4.0 (unreleased)
+## 0.5.0 (unreleased)
+
+- Read and edit existing knowledge with `sources get` and `sources update`.
+- Register hosted MCP by default with `mcp add`. Pass `--local` for stdio.
+- Expose scoped tools for source editing, workspace identity, agent settings, actions, training, chat and transcript exports. Local stdio has separate write, delete and export flags.
+
+## 0.4.0
 
 Changes to the hosted handler exported from `@agikits/agentkit/mcp`. The CLI and the local stdio server behave as in 0.3.0.
 

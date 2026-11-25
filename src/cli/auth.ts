@@ -16,7 +16,6 @@ type GlobalOptions = { key?: string; url?: string; json?: boolean; quiet?: boole
 type Schemas = components["schemas"];
 type DeviceCode = Schemas["DeviceCode"];
 type DeviceToken = Schemas["DeviceToken"];
-type Status = Schemas["CurrentCredential"];
 
 const flowErrors = new Map([
   ["expired_token", "The sign-in code expired. Run agentkit auth login --browser for a new code."],
@@ -212,7 +211,7 @@ export function registerAuthCommands(
       const credentialLocation = config.keyLocation ?? config.sessionLocation;
       if (!credentialLocation) throw new Error("No Agentkit credentials configured. Run agentkit auth login.");
       const { account, credential } = await makeClient(config.url, config.key, config.sessionToken)
-        .requestJson<Status>("GET", "/api/v2/me");
+        .whoami();
       if (globals().json) print({ account, credential, credentialLocation });
       else {
         const locations = { flag: "--key flag", env: "environment variable", config: "config file" };

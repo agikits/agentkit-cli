@@ -10,6 +10,7 @@ import { registerApiCommand } from "./api.js";
 import { registerAgentDefaults } from "./agent-defaults.js";
 import { readStdin } from "./input.js";
 
+import { sourceEditError, type SourceEditFields } from "../shared/source-edit.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
 import { VERSION } from "../sdk/version.js";
 import type { StreamEvent, SecurityUpdate, AiUpdate } from "../sdk/types.js";
@@ -741,6 +742,51 @@ program
     },
   );
 
+program.command("get-source <project> <documentId>")
+  .description("Read a knowledge source and its stored content")
+  .option("--json", "Print JSON output")
+  .action(async (project: string, documentId: string, opts: { json?: boolean }) => {
+    const { agentId, client } = await projectClient(project);
+    const doc = await client.getSource(agentId, documentId);
+    if (opts.json) return out(doc);
+    const lines = (value: string) => value.split(/\r?\n/).map(cell).join("\n");
+    console.log(`${cell(doc.title)} (${cell(doc.sourceType)})`);
+    if (doc.sourceType === "qna_entry" && doc.questions && doc.answer !== undefined) {
+      console.log("Questions:");
+      for (const question of doc.questions) console.log(cell(question));
+      console.log("Answer:");
+      console.log(lines(doc.answer));
+    } else console.log(lines(doc.content));
+  });
+
+program.command("update-source <project> <documentId>")
+  .description("Edit a knowledge source in place")
+  .option("--title <title>", "Replace the source title")
+  .option("--question <q...>", "Replace the Q&A questions (repeatable)")
+  .option("--answer <answer>", "Replace the Q&A answer")
+  .option("--content <content>", "Replace the text, web or file source content")
+  .option("--file <path>", "Read replacement content from a file or - for stdin")
+  .option("--json", "Print JSON output")
+  .action(async (project: string, documentId: string, opts: {
+    title?: string; question?: string[]; answer?: string; content?: string; file?: string; json?: boolean;
+  }) => {
+    const patch: SourceEditFields = {};
+    if (opts.title !== undefined) patch.title = opts.title;
+    if (opts.question !== undefined) patch.questions = opts.question;
+    if (opts.answer !== undefined) patch.answer = opts.answer;
+    if (opts.content !== undefined) patch.content = opts.content;
+    const error = sourceEditError({ ...patch, content: opts.content ?? opts.file });
+    if (error) throw new Error(error);
+    if (opts.file !== undefined) {
+      if (opts.content !== undefined) throw new Error("Choose either --content or --file.");
+      patch.content = opts.file === "-" ? await readStdin() : await readFile(opts.file, "utf8");
+    }
+    const { agentId, client } = await projectClient(project);
+    const doc = await client.updateSource(agentId, documentId, patch);
+    if (opts.json) return out(doc);
+    console.log(`Updated ${cell(doc.title)} (${cell(doc.id)})`);
+  });
+
 program
   .command("add-text <project>")
   .description("Add a text knowledge source")
@@ -1378,7 +1424,7 @@ const copies = new Command().configureHelp({ showGlobalOptions: true }).exitOver
 registerCommands(copies);
 const groups: Record<string, Record<string, string>> = {
   agents: { list: "agents", create: "create-agent", update: "update-agent", delete: "delete-agent", info: "info" },
-  sources: { list: "sources", "add-text": "add-text", "add-qna": "add-qna", "add-url": "add-url", "file-upload-urls": "file-upload-urls", "register-files": "register-files", delete: "delete-source" },
+  sources: { list: "sources", get: "get-source", update: "update-source", "add-text": "add-text", "add-qna": "add-qna", "add-url": "add-url", "file-upload-urls": "file-upload-urls", "register-files": "register-files", delete: "delete-source" },
   conversations: { list: "conversations", get: "conversation", messages: "messages", export: "export", feedback: "feedback", retry: "retry", "tool-result": "tool-result" },
   contacts: { list: "contacts", upsert: "add-contact", import: "import-contacts" },
   settings: { ai: "ai-settings", model: "set-model", instructions: "set-instructions", design: "design", security: "security", notifications: "notifications", training: "autotrain" },
@@ -1429,7 +1475,9 @@ program.configureHelp({
   visibleCommands: command => command.commands.filter(child => !legacyNames.has(child.name()) || child.commands.length > 0),
 });
 const mcp = program.command("mcp").description("Connect MCP clients or run the read-only stdio server")
-  .option("--allow-writes", "Expose text knowledge, instruction updates and agent creation (without --agent)")
+  .option("--allow-writes", "Enable write tools, including training and chat")
+  .option("--allow-delete", "Enable source deletion")
+  .option("--allow-export", "Enable full conversation export")
   .option("--agent <uuid...>", "Restrict this connection to specified agent UUIDs")
   .action(async (options: { allowWrites?: boolean; agent?: string[] }) => {
     const { runStdio } = await import("../mcp/run-stdio.js");

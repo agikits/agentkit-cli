@@ -6,7 +6,7 @@ executable. Node 22+ is required. The SDK import does not load Commander; the co
 Commander for the CLI.
 
 The MIT-licensed package is published on npm as `@agikits/agentkit`. These
-examples use the unreleased 0.3.0 CLI. To try it from this checkout, run
+examples use the 0.5.0 CLI. To try it from this checkout, run
 `npm ci` and invoke `node dist/cli/index.js` in place of `agentkit`.
 
 Install the published CLI with `npm install -g @agikits/agentkit`, or run it
@@ -41,11 +41,10 @@ or pipe the token to `agentkit auth login --with-session-token`. Saved API keys
 and session tokens are bound to their configured origin. The CLI lets sessions
 expire on the server's schedule. Workspace keys can read the inbox and edit,
 send, discard or restore reviewed email items within their scopes.
-The November 23 baseline matches the published API specification, including
-workspace-key draft approval and upload reservations. The 0.3.0 auth commands
-require a server with the new v2 auth endpoints. See
-[contract provenance](contracts/provenance.json) for the deployed baseline and
-the auth candidate.
+The published API specification observed November 25 includes browser login
+and scoped keys. The 0.5.0 source commands require the source detail and
+update routes. See [contract provenance](contracts/provenance.json) for the
+reviewed product commit and deployed baseline.
 
 The CLI sends no telemetry. Config lives in
 `~/.config/agentkit/config.json`, or `AGENTKIT_CONFIG_DIR/config.json`. On POSIX,
@@ -72,6 +71,8 @@ agentkit agents list --json
 agentkit settings design demo --json
 agentkit settings instructions demo --file instructions.txt
 agentkit sources add-text demo --title FAQ --file faq.txt
+agentkit sources get demo <document-id> --json
+agentkit sources update demo <document-id> --file corrected-faq.txt
 agentkit train demo --status --json
 agentkit conversations list demo --source widget --json
 agentkit emails demo --status all --json
@@ -153,8 +154,9 @@ Instagram commands are experimental; OAuth setup remains in the dashboard.
 Custom API actions use a disabled-first workflow. Create one with
 `actions create --file action.json`, test its destination and sample response,
 then use `actions enable --expected-updated-at <timestamp>`. Updates and deletes
-also require the last `updatedAt` value. Action and secret writes require a user
-session. Set secrets with stdin or `secrets set --env VARIABLE`; the CLI does not
+also require the last `updatedAt` value. Action creation, definition edits,
+deletion and secret changes require a user session. The SDK can send action
+toggles with a write-scoped key when the server supports it. Set secrets with stdin or `secrets set --env VARIABLE`; the CLI does not
 accept or print a positional secret value.
 
 ## SDK
@@ -194,26 +196,27 @@ job ID and retrain flag, not a document ID. Security rate limits are objects wit
 
 ## Connect an MCP client
 
-After you save your workspace key with `agentkit auth login`, register
-Agentkit with your coding agent. The local server reads the same login. You can
-register it before signing in, too.
+Run `agentkit mcp add <client>` to register `https://agentkit.ai/api/mcp`.
+Connect from the client and choose the workspace and scopes on the OAuth consent
+screen. Use `--url` to select another API origin. For a local stdio server,
+pass `--local` and save a workspace key with `agentkit auth login`.
 
 ```sh
 agentkit mcp add                  # choose a detected client in an interactive terminal
 agentkit mcp add claude-code
 agentkit mcp add cursor --scope project --dry-run
-agentkit mcp add codex --agent <uuid-1> <uuid-2> --allow-writes
+agentkit mcp add codex --local --agent <uuid-1> <uuid-2> --allow-writes
 agentkit mcp status --json
 agentkit mcp remove cursor --scope project
 ```
 
 | Client | Default user registration | Other scopes |
 | --- | --- | --- |
-| Claude Code | `claude mcp add --scope user` | `project` for shared `.mcp.json`, `local` for a private project registration |
+| Claude Code | `claude mcp add --transport http --scope user` | `project` for shared `.mcp.json`, `local` for a private project registration |
 | Codex | `[mcp_servers.agentkit]` in `~/.codex/config.toml` (honors `CODEX_HOME`) | |
 | Cursor | `mcpServers` in `~/.cursor/mcp.json` | `project` for `.cursor/mcp.json` |
 | VS Code | `code --add-mcp` for the default user profile | `project` for `servers` in `.vscode/mcp.json` |
-| Claude Desktop | `mcpServers` in the OS-specific `Claude/claude_desktop_config.json` | |
+| Claude Desktop | Settings → Connectors for hosted HTTP. `--local` writes `Claude/claude_desktop_config.json` | |
 | Windsurf stable editor | `mcpServers` in `~/.codeium/windsurf/mcp_config.json` | |
 
 Run project-scoped commands from the project root. On Windsurf, enable the
@@ -225,7 +228,7 @@ or status to select a different registration. Repeating an identical add makes
 no change. Replacing a different registration requires `--force`. Add and remove
 keep the previous file in a sibling `.bak` and support `--dry-run` and `--json`.
 
-Agentkit stores the absolute path to `agentkit-mcp` from your PATH when available.
+For `--local`, Agentkit stores the absolute path to `agentkit-mcp` from your PATH when available.
 The client still needs Node.js to run that executable.
 Otherwise the client runs `npx -y -p @agikits/agentkit agentkit-mcp`, which needs
 npm on the client's PATH. The registration contains the launch command and flags.
@@ -233,9 +236,8 @@ Your workspace key and session stay in the CLI credential store or environment.
 
 `status` checks local credentials and reads each detected client's configuration.
 It reports registration separately for each scope and masks unrecognized server
-arguments. It makes no API request. The stdio server needs a workspace API key
-even if the CLI has a management session. Hosted registration (`--remote`) is
-reserved for a future release.
+arguments and URL credentials. The status check reads local files. Claude Desktop
+manages hosted connectors in Settings. The stdio server needs a workspace API key.
 
 ## MCP
 
@@ -267,14 +269,13 @@ key in the JSON or command arguments. The process also accepts an explicit
 endpoint override to another origin. Environment credentials are the operator's
 explicit choice for the selected endpoint. The process never prompts for login.
 
-Eleven tools read agents, AI/design/security/notification/training settings,
-knowledge sources, conversations and training status. Reads are enabled by
-default. `--allow-writes` additionally exposes text-source creation and live
-instruction updates. Agent creation is exposed only without an agent restriction.
-Enabling writes permits those operations for the entire connection. Review your
-client's confirmation settings. The server never starts training, sends messages
-or emails, deletes resources, reads secrets, or executes arbitrary URLs or shell
-commands. Conversations and instructions can contain private customer content.
+Read tools cover workspace identity, agents, knowledge, conversations, contacts,
+leads, settings, channels and training status. Local stdio starts read-only.
+`--allow-writes` enables agent and source changes, settings updates, action
+toggles, training and chat. Training re-crawls web sources and spends training
+credits. Chat persists messages and spends message credits. Agent creation
+requires workspace-wide access. `--allow-delete` enables source deletion.
+`--allow-export` enables full transcript export.
 
 Tool inputs reject unknown fields. Requests are capped at 128 KiB, stdio API
 responses at 512 KiB, and tool results at 64 KiB. Oversized results fail with a

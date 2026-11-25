@@ -9,23 +9,40 @@ import { jwtExpired } from "../sdk/client.js";
 import { redact, resolveConfig } from "../shared/config.js";
 import { isRecord } from "../shared/storage.js";
 import { AGENT_ID } from "../shared/project.js";
-import { clients, executable, type ClientConfig, type Target } from "./mcp-clients.js";
+import { clients, executable, type Client, type ClientConfig, type Target } from "./mcp-clients.js";
 import { commitConfig, configEntry, contents } from "./mcp-config.js";
 
-type Server = { command: string; args: string[]; type?: "stdio" };
-type Options = { agent?: string[]; allowWrites?: boolean; scope?: string; name: string; force?: boolean; dryRun?: boolean; json?: boolean; plain?: boolean; quiet?: boolean; input?: boolean };
+type LocalServer = { command: string; args: string[]; type?: "stdio" };
+type Server = LocalServer | { url: string; type?: "http" } | { serverUrl: string };
+type Options = { url?: string; remote?: boolean; local?: boolean; allowDelete?: boolean; allowExport?: boolean; agent?: string[]; allowWrites?: boolean; scope?: string; name: string; force?: boolean; dryRun?: boolean; json?: boolean; plain?: boolean; quiet?: boolean; input?: boolean };
 const fallback = ["-y", "-p", "@agikits/agentkit", "agentkit-mcp"];
-function serverFor(opts: Options): Server {
+async function serverFor(client: Client, opts: Options): Promise<Server> {
+  if (opts.remote && opts.local) throw new Error("Choose either --remote or --local.");
+  if (!opts.local) {
+    if (opts.agent || opts.allowWrites || opts.allowDelete || opts.allowExport) {
+      throw new Error("--agent and --allow-* flags require --local. Remote OAuth grants are workspace-wide with scopes selected on the consent screen.");
+    }
+    const config = await resolveConfig({ url: opts.url }, { ignoreCredentials: true });
+    const url = `${config.url}/api/mcp`;
+    if (client === "windsurf") return { serverUrl: url };
+    if (client === "claude-code" || client === "vscode") return { type: "http", url };
+    return { url };
+  }
   if (opts.agent?.some(id => !AGENT_ID.test(id))) throw new Error("--agent requires UUIDs.");
   const binary = executable("agentkit-mcp");
   const args = binary ? [] : [...fallback];
   if (opts.allowWrites) args.push("--allow-writes");
+  if (opts.allowDelete) args.push("--allow-delete");
+  if (opts.allowExport) args.push("--allow-export");
   if (opts.agent?.length) args.push("--agent", ...opts.agent);
-  return { command: binary ?? "npx", args };
+  const server: LocalServer = { command: binary ?? "npx", args };
+  if (client === "vscode") server.type = "stdio";
+  return server;
 }
 
 function sameServer(existing: unknown, desired: Server) {
   if (!isRecord(existing)) return false;
+  if (!("command" in desired)) return isDeepStrictEqual({ ...existing }, desired);
   const { type = "stdio", env = {}, args = [], ...rest } = existing;
   return type === "stdio" && isRecord(env) && !Object.keys(env).length &&
     isDeepStrictEqual({ ...rest, args }, { command: desired.command, args: desired.args });
@@ -71,7 +88,8 @@ function checkName(name: string) {
 }
 
 function addCommand(client: ClientConfig, target: Target, name: string, server: Server) {
-  if (client.id === "claude-code") return ["claude", "mcp", "add", "--scope", target.scope, name, "--", server.command, ...server.args];
+  if (client.id === "claude-code" && "url" in server) return ["claude", "mcp", "add", "--transport", "http", "--scope", target.scope, name, server.url];
+  if (client.id === "claude-code" && "command" in server) return ["claude", "mcp", "add", "--scope", target.scope, name, "--", server.command, ...server.args];
   if (client.id === "vscode" && target.scope === "user") return ["code", "--add-mcp", JSON.stringify({ name, ...server })];
 }
 
@@ -105,10 +123,15 @@ async function change(operation: "add" | "remove", id: string | undefined, opts:
   const client = await choose(id, operation, opts.input);
   const target = client.targets.find(t => t.scope === (opts.scope ?? "user"));
   if (!target) throw new Error(`Supported scopes for ${client.id}: ${client.targets.map(t => t.scope).join(", ")}.`);
+  const server = operation === "add" ? await serverFor(client.id, opts) : undefined;
+  if (client.id === "claude-desktop" && server && "url" in server) {
+    const instructions = `Open Claude Desktop Settings → Connectors, add a custom connector named ${opts.name} with URL ${server.url}, then sign in.`;
+    if (opts.json) printJson({ action: "manual", client: client.id, name: opts.name, scope: target.scope, dryRun: !!opts.dryRun, server, instructions }, opts.plain);
+    else console.log(clean(instructions));
+    return;
+  }
   const original = await contents(target.file);
   const entry = configEntry(target, original, opts.name);
-  const server = operation === "add" ? serverFor(opts) : undefined;
-  if (server && client.id === "vscode") server.type = "stdio";
   const exists = entry.current !== undefined;
   const unchanged = server ? sameServer(entry.current, server) : !exists;
   if (server && exists && !unchanged && !opts.force) throw new Error(`A different ${opts.name} entry exists in ${target.file}. Use --force to replace it.`);
@@ -122,13 +145,14 @@ async function change(operation: "add" | "remove", id: string | undefined, opts:
   const command = argv && displayCommand(argv);
   const removeFirst = manual && exists && client.id === "claude-code"
     ? displayCommand(["claude", "mcp", "remove", "--scope", target.scope, opts.name]) : undefined;
-  const notice = server?.command === "npx" ? "agentkit-mcp was not found on PATH. Using the npx fallback." : undefined;
+  const notice = server && "command" in server && server.command === "npx" ? "agentkit-mcp was not found on PATH. Using the npx fallback." : undefined;
   if (opts.json) printJson({ action, dryRun: !!opts.dryRun, client: client.id, scope: target.scope, name: opts.name, file: target.file, server, removeFirst, command, notice }, opts.plain);
   else {
     console.log(clean(`${opts.dryRun ? "Dry run: " : ""}${action} ${opts.name} (${client.id}, ${target.scope}) in ${target.file}`));
     if (removeFirst) console.log(clean(`Run: ${removeFirst}`));
     if (manual && command) console.log(clean(`Run: ${command}`));
-    else if (server) console.log(clean(displayCommand([server.command, ...server.args])));
+    else if (server && "command" in server) console.log(clean(displayCommand([server.command, ...server.args])));
+    else if (server) console.log(clean("url" in server ? server.url : server.serverUrl));
     if (notice && !opts.quiet) console.log(notice);
   }
 }
@@ -137,20 +161,43 @@ function statusArgs(entry: unknown): string[] {
   if (!isRecord(entry) || !Array.isArray(entry.args)) return [];
   // Other programs may store secrets in arbitrary positional arguments.
   return entry.args.map(arg => typeof arg === "string" &&
-    (["--allow-writes", "--agent", ...fallback].includes(arg) || AGENT_ID.test(arg)) ? arg : "[redacted]");
+    (["--allow-writes", "--allow-delete", "--allow-export", "--agent", ...fallback].includes(arg) || AGENT_ID.test(arg)) ? arg : "[redacted]");
 }
 
-async function status(opts: Options & { url?: string }) {
+function transportDetails(entry: unknown) {
+  if (!isRecord(entry)) return {};
+  const remote = entry.url ?? entry.serverUrl;
+  if (typeof remote === "string") {
+    let display = "[redacted]";
+    try {
+      const url = new URL(remote);
+      if (["https:", "http:"].includes(url.protocol)) {
+        // Paths, query strings and userinfo in third-party entries can carry credentials.
+        display = url.origin + (url.pathname === "/api/mcp" ? url.pathname : "/[redacted]");
+      }
+    } catch { /* Preserve the registration without printing arbitrary text. */ }
+    return { transport: "http", url: display };
+  }
+  if (typeof entry.command === "string") return { transport: "stdio", args: statusArgs(entry) };
+  return {};
+}
+
+async function status(opts: Options) {
   checkName(opts.name);
   const { key, sessionToken } = await resolveConfig({ url: opts.url }, { requireKey: false, allowSession: "optional" });
   const loggedIn = !!key || (!!sessionToken && !jwtExpired(sessionToken));
   const rows = [];
+  let needsLocalKey = false;
   for (const client of clients().filter(c => c.detected)) {
     for (const target of client.targets) {
       if (opts.scope && target.scope !== opts.scope) continue;
       try {
         const { current } = configEntry(target, await contents(target.file), opts.name);
-        rows.push({ client: client.id, scope: target.scope, configured: current !== undefined, args: statusArgs(current) });
+        if (isRecord(current) && typeof current.command === "string" && !(isRecord(current.env) && (current.env.AGENTKIT_API_KEY || current.env.AGENTKIT_KEY))) {
+          const bin = path.basename(current.command).replace(/\.(cmd|exe|bat)$/i, "");
+          if (bin === "agentkit-mcp" || (bin === "npx" && Array.isArray(current.args) && current.args.includes("agentkit-mcp"))) needsLocalKey = true;
+        }
+        rows.push({ client: client.id, scope: target.scope, configured: current !== undefined, ...transportDetails(current) });
       } catch {
         rows.push({ client: client.id, scope: target.scope, error: `Cannot read MCP configuration in ${target.file}.` });
         process.exitCode = 1;
@@ -160,24 +207,28 @@ async function status(opts: Options & { url?: string }) {
   if (opts.json) printJson({ loggedIn, mcpApiKeyConfigured: !!key, name: opts.name, clients: rows }, opts.plain);
   else {
     console.log(`Agentkit login: ${loggedIn ? "credentials configured" : "no credentials configured"}`);
-    if (loggedIn && !key) console.log("MCP requires a workspace API key. Only a CLI session is configured.");
+    if (!key && needsLocalKey) console.log("Local Agentkit stdio requires a workspace API key.");
     if (!rows.length) console.log("No MCP clients detected for this scope.");
     for (const row of rows) {
-      const state = row.error ?? (row.configured ? `configured, args ${JSON.stringify(row.args)}` : "not configured");
+      const state = row.error ?? (row.transport === "http" ? `configured, HTTP ${row.url}`
+        : row.transport === "stdio" ? `configured, stdio args ${JSON.stringify(row.args)}` : row.configured ? "unrecognized registration" : "not configured");
       console.log(clean(`${row.client} (${row.scope}): ${opts.name} ${state}`));
     }
   }
 }
 
 export function registerMcpCommands(group: Command) {
-  group.option("--remote", "Use the hosted MCP server (unavailable)")
-    .hook("preAction", () => {
-      if (group.opts().remote) throw new Error("Remote MCP server is not available yet");
+  group.option("--remote", "Register hosted HTTP with mcp add (default)")
+    .option("--local", "Register local stdio with mcp add")
+    .hook("preAction", (_owner, action) => {
+      if ((group.opts().remote || group.opts().local) && action.name() !== "add") {
+        throw new Error("Use transport flags with agentkit mcp add <client>.");
+      }
       if (group.optsWithGlobals().key) throw new Error("MCP keys must come from saved config or AGENTKIT_API_KEY, not command arguments.");
     });
   for (const operation of ["add", "remove", "status"] as const) {
     const cmd = group.command(operation).configureHelp({ showGlobalOptions: true }).description({
-      add: "Register the local Agentkit MCP server with a client",
+      add: "Register the hosted Agentkit MCP server with a client",
       remove: "Remove a named MCP registration from a client",
       status: "Show local API key and client registration status",
     }[operation]).option("--name <server-name>", "Server registration name", "agentkit")
