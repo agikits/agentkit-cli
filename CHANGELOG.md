@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.0 (unreleased)
+
+Changes to the hosted handler exported from `@agikits/agentkit/mcp`. The CLI and the local stdio server behave as in 0.3.0.
+
+- `createAgentkitHttpHandler` takes scope names from the host through `scopes` (`read`, `write`, and optional `delete` and `export`). The default stays `agentkit:read` and `agentkit:write`. A tool whose scope name the host leaves out is not registered.
+- Add `allowedOrigins`. Listed browser origins, or any origin with `"*"`, get CORS headers and an answer to the `OPTIONS` preflight. Without it, requests carrying an `Origin` other than the resource origin still get 403.
+- Accept an `http:` authorization server only when the resource itself is `http:` on a loopback host, so a local development server can be its own issuer.
+- Add `serveMetadata: false` for hosts that publish the protected-resource metadata themselves.
+- The 401 challenge carries `scope="<read scope> <write scope>"`, the default grant, because clients request exactly the scope the challenge names. When a presented bearer token is malformed, unknown, expired or revoked, the challenge also carries `error="invalid_token"` (RFC 6750 section 3.1); a request with no token gets none. A token without the read scope, or a `tools/call` for a tool whose scope the token lacks, gets 403 with `WWW-Authenticate: Bearer error="insufficient_scope", scope="<needed>"` before any API request is made.
+- Export `MCP_TOOL_ACCESS`, the access class of every tool.
+- Document that `AgentkitClient` accepts an injected `fetch`, which a host can use to dispatch API calls in-process.
+
 ## 0.3.0 (unreleased)
 
 - Add browser approval, hidden API-key entry and stdin login under `agentkit auth login`. Add credential status and server-side key revocation. Keep `init` and `logout` as hidden aliases.

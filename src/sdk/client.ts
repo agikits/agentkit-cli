@@ -99,7 +99,7 @@ export type ClientOptions = {
   sessionToken?: string;
   /** Base origin, default https://agentkit.ai. */
   baseUrl?: string;
-  /** Injectable for tests; defaults to global fetch. */
+  /** Defaults to global fetch. A host can inject one that dispatches in-process instead of over the network. */
   fetch?: typeof fetch;
   /** Total request/stream deadline, default 60 seconds. No automatic retries. */
   timeoutMs?: number;
@@ -189,7 +189,7 @@ export class AgentkitClient {
       catch { throw new AgentkitError({ code: "RESPONSE_INVALID_JSON", message: "API returned invalid JSON.", status: response.status, requestId: response.headers.get("x-request-id") ?? undefined }); }
     } catch (error) {
       if (lifetime.signal.aborted) throw lifetime.signal.reason;
-      throw error;
+      throw wrapNetworkError(error, this.baseUrl);
     } finally { lifetime.dispose(); }
   }
 
@@ -226,7 +226,7 @@ export class AgentkitClient {
       }
     } catch (error) {
       if (lifetime.signal.aborted) throw lifetime.signal.reason;
-      throw error;
+      throw wrapNetworkError(error, this.baseUrl);
     } finally { lifetime.dispose(); }
   }
 
@@ -243,6 +243,7 @@ export class AgentkitClient {
     if (options.limit != null) params.set("limit", String(options.limit));
     if (options.cursor) params.set("cursor", options.cursor);
     if (options.source) params.set("source", options.source);
+    if (options.unread !== undefined) params.set("unread", String(options.unread));
     const s = params.toString();
     return s ? `?${s}` : "";
   }
@@ -783,4 +784,18 @@ function igPath(agentId: string): string {
 
 function enc(segment: string): string {
   return encodeURIComponent(segment);
+}
+
+function wrapNetworkError(error: unknown, baseUrl: string): unknown {
+  if (!(error instanceof TypeError)) return error;
+  const causeMessage = error.cause instanceof Error ? error.cause.message.toLowerCase() : "";
+  if (causeMessage.includes("redirect")) return error;
+  if (error.message.toLowerCase() === "fetch failed") {
+    return new AgentkitError({
+      code: "NETWORK_ERROR",
+      message: `Cannot reach ${baseUrl} (network blocked or offline?).`,
+      status: 0,
+    });
+  }
+  return error;
 }

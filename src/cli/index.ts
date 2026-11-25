@@ -102,7 +102,13 @@ function oneOf<T extends string>(...values: T[]): (v: string) => T {
   };
 }
 
-const parseSource = oneOf<ConversationSource>("api_v2", "playground", "widget", "instagram", "all");
+const parseSource = oneOf<ConversationSource>("api_v2", "playground", "widget", "instagram", "center_stage", "help_page", "all");
+function resolveUnreadFilter(opts: { unread?: boolean; read?: boolean }): boolean | undefined {
+  if (opts.unread && opts.read) throw new InvalidArgumentError("cannot combine --unread and --read");
+  if (opts.unread) return true;
+  if (opts.read) return false;
+  return undefined;
+}
 const parseEmailStatus = oneOf<EmailStatus>("to_review", "sent", "discarded", "all");
 const parseIgStatus = oneOf<InstagramAutomationStatus>("draft", "live", "off");
 const parseManagementChannel = oneOf<import("../sdk/types.js").ManagementChannelId>("web", "help_page", "center_stage", "instagram", "whatsapp", "email");
@@ -242,12 +248,14 @@ program
 program
   .command("conversations <project>")
   .description(
-    "List conversations (default source=api_v2; use --source playground|widget|instagram|all for other chats)",
+    "List conversations (default source=api_v2; use --source playground|widget|instagram|center_stage|help_page|all for other chats)",
   )
   .option("--limit <n>", "Page size (1-100)", (v: string) => parseLimit(v))
   .option("--cursor <c>", "Pagination cursor")
   .option("--user <id>", "Filter by end-user id")
-  .option("--source <s>", "Source filter: api_v2 | playground | widget | instagram | all", parseSource)
+  .option("--source <s>", "Source filter: api_v2 | playground | widget | instagram | center_stage | help_page | all", parseSource)
+  .option("--unread", "Only unread conversations (leaves unread state intact)")
+  .option("--read", "Only read conversations")
   .option("--json", "Print JSON output")
   .action(
     async (
@@ -257,14 +265,18 @@ program
         cursor?: string;
         user?: string;
         source?: ConversationSource;
+        unread?: boolean;
+        read?: boolean;
         json?: boolean;
       },
     ) => {
+      const unread = resolveUnreadFilter(opts);
       const { agentId, client } = await projectClient(project);
       const listOpts = {
         limit: opts.limit,
         cursor: opts.cursor,
         source: opts.source,
+        unread,
       };
       const list = opts.user
         ? await client.listUserConversations(agentId, opts.user, listOpts)
@@ -280,7 +292,7 @@ program
 program
   .command("conversation <project> <conversationId>")
   .description("Show a conversation with its messages, searching all sources by default")
-  .option("--source <s>", "Source filter: api_v2 | playground | widget | instagram | all (default all)", parseSource, "all")
+  .option("--source <s>", "Source filter: api_v2 | playground | widget | instagram | center_stage | help_page | all (default all)", parseSource, "all")
   .option("--json", "Print JSON output")
   .action(
     async (
@@ -358,11 +370,13 @@ program
 program
   .command("export <project>")
   .description(
-    "Export conversations with full transcripts (maxLimit 20; --source playground|widget|instagram|all for other chats)",
+    "Export conversations with full transcripts (maxLimit 20; --source playground|widget|instagram|center_stage|help_page|all for other chats)",
   )
   .option("--limit <n>", "Page size (1-20)", (v: string) => parseLimit(v, 20))
   .option("--cursor <c>", "Pagination cursor")
-  .option("--source <s>", "Source filter: api_v2 | playground | widget | instagram | all", parseSource)
+  .option("--source <s>", "Source filter: api_v2 | playground | widget | instagram | center_stage | help_page | all", parseSource)
+  .option("--unread", "Only unread conversations (leaves unread state intact)")
+  .option("--read", "Only read conversations")
   .option("--json", "Print JSON output")
   .action(
     async (
@@ -371,14 +385,18 @@ program
         limit?: number;
         cursor?: string;
         source?: ConversationSource;
+        unread?: boolean;
+        read?: boolean;
         json?: boolean;
       },
     ) => {
+      const unread = resolveUnreadFilter(opts);
       const { agentId, client } = await projectClient(project);
       const list = await client.exportConversations(agentId, {
         limit: opts.limit,
         cursor: opts.cursor,
         source: opts.source,
+        unread,
       });
       out(list);
     },
