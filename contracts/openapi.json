@@ -26,6 +26,270 @@
     }
   ],
   "paths": {
+    "/auth/device/code": {
+      "post": {
+        "operationId": "requestDeviceCode",
+        "summary": "Start CLI browser sign-in",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceCodeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Device and activation codes issued.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceCode"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "429": {
+            "description": "Too many codes requested from this IP.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until another request can be made.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "const": "rate_limited"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/device/token": {
+      "post": {
+        "operationId": "redeemDeviceCode",
+        "summary": "Poll for CLI browser approval and redeem the device code",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceTokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Single-use response containing the new workspace API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is pending, polling too quickly, expired, denied or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "error"
+                      ],
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "enum": [
+                            "authorization_pending",
+                            "expired_token",
+                            "access_denied",
+                            "invalid_grant"
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "error",
+                        "interval"
+                      ],
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "const": "slow_down"
+                        },
+                        "interval": {
+                          "type": "integer",
+                          "minimum": 1
+                        }
+                      }
+                    },
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The approver is no longer a workspace member.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "const": "access_denied"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The active API key limit has been reached.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "const": "key_limit_reached"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/key": {
+      "delete": {
+        "operationId": "revokeCurrentKey",
+        "summary": "Revoke the calling API key, regardless of its scopes",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OptionalSessionAuthMode"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionBearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The API key was revoked."
+          },
+          "400": {
+            "description": "The current credential is a session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "const": "not_an_api_key"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/me": {
+      "get": {
+        "operationId": "getCurrentCredential",
+        "summary": "Get the calling credential's workspace and scopes",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionBearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OptionalSessionAuthMode"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The current workspace and credential metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentCredential"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
     "/agents/{agentId}/channels": {
       "get": {
         "operationId": "listManagementChannels",
@@ -5660,7 +5924,7 @@
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "description": "Send the workspace API key as Authorization: Bearer <key>."
+        "description": "Send the workspace API key as Authorization: Bearer <key>. API keys need read for GET, write for POST, PUT and PATCH, and delete for DELETE. Conversation and contact exports need export. Key revocation accepts any scope."
       },
       "sessionBearerAuth": {
         "type": "http",
@@ -5955,7 +6219,7 @@
         }
       },
       "Forbidden": {
-        "description": "The workspace plan does not permit the request or a quota was reached.",
+        "description": "The workspace plan does not permit the request, a quota was reached, or the calling API key lacks a required scope.",
         "headers": {
           "x-request-id": {
             "$ref": "#/components/headers/RequestId"
@@ -5964,7 +6228,14 @@
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/Error"
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/Error"
+                },
+                {
+                  "$ref": "#/components/schemas/InsufficientScope"
+                }
+              ]
             }
           }
         }
@@ -14298,6 +14569,231 @@
             }
           }
         ]
+      },
+      "ApiKeyScope": {
+        "type": "string",
+        "enum": [
+          "read",
+          "write",
+          "delete",
+          "export"
+        ]
+      },
+      "InsufficientScope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "error",
+          "required"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "const": "insufficient_scope"
+          },
+          "required": {
+            "$ref": "#/components/schemas/ApiKeyScope"
+          }
+        }
+      },
+      "CredentialAccount": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "slug",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "DeviceCodeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "client_name"
+        ],
+        "properties": {
+          "client_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        }
+      },
+      "DeviceCode": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "device_code",
+          "user_code",
+          "verification_uri",
+          "verification_uri_complete",
+          "expires_in",
+          "interval"
+        ],
+        "properties": {
+          "device_code": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$"
+          },
+          "user_code": {
+            "type": "string",
+            "pattern": "^[BCDFGHJKLMNPQRSTVWXZ]{4}-[BCDFGHJKLMNPQRSTVWXZ]{4}$"
+          },
+          "verification_uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "verification_uri_complete": {
+            "type": "string",
+            "format": "uri"
+          },
+          "expires_in": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "interval": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "DeviceTokenRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "device_code"
+        ],
+        "properties": {
+          "device_code": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$"
+          }
+        }
+      },
+      "DeviceToken": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "api_key",
+          "key",
+          "account"
+        ],
+        "properties": {
+          "api_key": {
+            "type": "string"
+          },
+          "key": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "name",
+              "source",
+              "scopes"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string",
+                "const": "cli"
+              },
+              "scopes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ApiKeyScope"
+                }
+              }
+            }
+          },
+          "account": {
+            "$ref": "#/components/schemas/CredentialAccount"
+          }
+        }
+      },
+      "CurrentCredential": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "account",
+          "credential"
+        ],
+        "properties": {
+          "account": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CredentialAccount"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "credential": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source",
+              "key_id",
+              "name",
+              "scopes"
+            ],
+            "properties": {
+              "source": {
+                "type": "string",
+                "enum": [
+                  "manual",
+                  "cli",
+                  "session"
+                ]
+              },
+              "key_id": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "scopes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ApiKeyScope"
+                }
+              }
+            }
+          }
+        }
       }
     }
   }

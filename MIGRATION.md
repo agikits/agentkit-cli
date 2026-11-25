@@ -1,5 +1,26 @@
 # Migrating the Agentkit CLI
 
+## 0.3.0
+
+Use `agentkit auth login` for a hidden API-key prompt,
+`agentkit auth login --with-token` for piped keys, or
+`agentkit auth login --browser` for workspace approval. `init` and `logout`
+are hidden aliases. `auth logout` now revokes the saved key at its configured
+origin before removing saved credentials. To remove only the local session,
+use `auth logout --session`.
+
+`auth status`, browser sign-in and server-side revocation need the new v2 auth
+endpoints. If revocation is unavailable on an older server, the CLI reports the
+error and removes the local credentials.
+
+Existing commands still accept an explicit project. To omit it, set
+`AGENTKIT_AGENT_ID` or save a default with `agentkit config set agent <id|alias>`.
+Before reverting to 0.2.2, remove the `agent` field from the local CLI config if
+you saved a default. You can use the environment variable with 0.3.0 to leave the
+file compatible with 0.2.2.
+
+## Earlier versions
+
 Run `agentkit projects --import /path/to/old/projects.json` once to migrate aliases
 into user config. Imports reject endpoint overrides and conflicting aliases.
 Keep the old file as a backup; the package no longer loads it automatically.
@@ -53,8 +74,8 @@ Existing account-key commands keep their authentication. Channels, Widgets and
 Backstage commands use `AGENTKIT_SESSION_TOKEN` or the saved session when present;
 otherwise common management reads/configuration use the account key. Gated
 operations fail locally without a session and never fall back to the key.
-Store a short-lived user access token with `init --with-session-token` on stdin.
-Saved sessions are bound to their origin and logout removes both credentials.
+Store a short-lived user access token with `agentkit auth login --with-session-token` on stdin.
+Saved sessions are bound to their origin.
 
 The pinned routes match the published specification. An older self-hosted
 server needs that revision. Existing Instagram status

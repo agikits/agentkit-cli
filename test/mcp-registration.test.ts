@@ -50,6 +50,15 @@ async function binary(name: string, script: string) {
   return file;
 }
 
+it("does not prompt to select an MCP client with --no-input", async () => {
+  const terminal = path.join(home, "terminal.cjs");
+  await fs.writeFile(terminal, "process.stdin.isTTY = process.stderr.isTTY = true;");
+  const result = run(["add", "--no-input"], { NODE_OPTIONS: `--require="${terminal.replaceAll("\\", "/")}"` });
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain("Run agentkit mcp add <client>");
+  expect(result.stderr).not.toContain("Choose an MCP client");
+});
+
 it.each(["cursor", "vscode", "claude-desktop", "windsurf"])("merges, replaces and removes only the named %s entry", async client => {
   const scope = client === "vscode" ? ["--scope", "project"] : [];
   const file = client === "vscode" ? path.join(project, ".vscode/mcp.json")

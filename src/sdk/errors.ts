@@ -7,6 +7,8 @@ export type V2ErrorBody = {
   };
 };
 
+type FlatV2ErrorBody = { error: string; required?: unknown; interval?: unknown };
+
 export class AgentkitError extends Error {
   readonly code: string;
   readonly status: number;
@@ -54,18 +56,30 @@ export async function errorFromResponse(
   response: Response,
   maxBytes = 16 * 1024 * 1024,
 ): Promise<AgentkitError> {
-  let body: V2ErrorBody = {};
+  let body: V2ErrorBody | FlatV2ErrorBody | undefined;
   try {
-    body = JSON.parse(await readResponseText(response, maxBytes)) as V2ErrorBody;
+    body = JSON.parse(await readResponseText(response, maxBytes)) as V2ErrorBody | FlatV2ErrorBody;
   } catch (error) {
     if (error instanceof AgentkitError) throw error;
     // non-JSON error body; fall back to status text
+  }
+  const requestId = response.headers.get("x-request-id") ?? undefined;
+  if (typeof body?.error === "string") {
+    const { error, required, interval } = body as FlatV2ErrorBody;
+    const missingScope = response.status === 403 && error === "insufficient_scope" && typeof required === "string";
+    return new AgentkitError({
+      code: error,
+      status: response.status,
+      message: missingScope ? `This API key requires the ${required} scope for this operation.` : `HTTP ${response.status}: ${error}`,
+      details: missingScope ? { required } : typeof interval === "number" ? { interval } : undefined,
+      requestId,
+    });
   }
   return new AgentkitError({
     code: body?.error?.code ?? `HTTP_${response.status}`,
     message: body?.error?.message ?? response.statusText ?? `HTTP ${response.status}`,
     status: response.status,
     details: body?.error?.details,
-    requestId: response.headers.get("x-request-id") ?? undefined,
+    requestId,
   });
 }

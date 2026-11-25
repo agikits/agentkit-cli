@@ -5,6 +5,10 @@ import { readFile } from "node:fs/promises";
 import { Command, CommanderError, InvalidArgumentError } from "commander";
 import { registerMcpCommands } from "./mcp.js";
 import { registerEmailCommands } from "./email.js";
+import { registerAuthCommands } from "./auth.js";
+import { registerApiCommand } from "./api.js";
+import { registerAgentDefaults } from "./agent-defaults.js";
+import { readStdin } from "./input.js";
 
 import { CAPABILITIES } from "../shared/capabilities.js";
 import { VERSION } from "../sdk/version.js";
@@ -42,16 +46,13 @@ import {
   parseMenuItemsJson,
 } from "../shared/instagram.js";
 import {
-  configPath,
-  readConfig,
   resolveConfig,
-  writeConfig,
   redact,
   rememberKey,
 } from "../shared/config.js";
 import { listProjects, loadProject, addProject, removeProject, importProjects } from "../shared/project.js";
 
-type GlobalOpts = { url?: string; key?: string; json?: boolean; timeout?: number };
+type GlobalOpts = { url?: string; key?: string; json?: boolean; timeout?: number; plain?: boolean; quiet?: boolean; input?: boolean };
 const cancellation = new AbortController();
 process.once("SIGINT", () => cancellation.abort(new Error("Request cancelled; a write may have completed.")));
 for (const key of [process.env.AGENTKIT_API_KEY, process.env.AGENTKIT_KEY, process.env.AGENTKIT_SESSION_TOKEN]) if (key) rememberKey(key);
@@ -70,6 +71,9 @@ program
   .option("--url <url>", "API base URL; overrides AGENTKIT_URL/config")
   .option("--key <key>", "API key; prefer AGENTKIT_API_KEY or stdin")
   .option("--json", "Machine-readable JSON output")
+  .option("--plain", "Use compact JSON and undecorated text")
+  .option("--quiet", "Suppress progress and hints")
+  .option("--no-input", "Disable interactive prompts and browser opening")
   .option("--timeout <ms>", "Total request/stream deadline in milliseconds", positiveInteger, 60000)
   .exitOverride()
   // Errors are printed as JSON by the catch handler; help shown for a missing subcommand goes to stdout like --help.
@@ -152,11 +156,11 @@ function cell(value: unknown): string {
 }
 
 function out(value: unknown): void {
-  console.log(JSON.stringify(value, null, 2));
+  console.log(JSON.stringify(value, null, globalOpts().plain ? undefined : 2));
 }
 
 function printCursorFooter(pagination: Pagination): void {
-  if (pagination.hasMore) {
+  if (pagination.hasMore && !globalOpts().quiet) {
     console.error(`\n(more: next cursor ${pagination.cursor})`);
   }
 }
@@ -171,57 +175,6 @@ program.command("capabilities [area]").description("Show offline CLI/API coverag
   });
 // ---- top-level commands ----
 
-program
-  .command("init")
-  .description("Save credentials in user config; POSIX mode 0600")
-  .option("--with-token", "Read API key from stdin")
-  .option("--with-session-token", "Read a short-lived user access token from stdin")
-  .action(async (opts: { withToken?: boolean; withSessionToken?: boolean }) => {
-    if (opts.withSessionToken && (opts.withToken || globalOpts().key)) throw new Error("Choose one credential input.");
-    if (opts.withSessionToken) {
-      const sessionToken = (await readStdin()).trim();
-      rememberKey(sessionToken);
-      const existing = await readConfig();
-      const { url } = await resolveConfig(globalOpts(), { requireKey: false, ignoreCredentials: true });
-      await writeConfig({ ...existing, url, sessionToken, sessionUrl: url });
-      out({ saved: true, auth: "session" });
-      return;
-    }
-    // Reuses the global --key/--url options.
-    let { key, url } = globalOpts();
-    if (opts.withToken) {
-      if (key) throw new Error("Use either --key or --with-token.");
-      key = (await readStdin()).trim();
-      if (!key) throw new Error("No token received on stdin.");
-      rememberKey(key);
-    }
-    const existing = await readConfig();
-    const next = {
-      ...existing,
-      ...(key ? { key, keyUrl: url || process.env.AGENTKIT_URL || existing.url || "https://agentkit.ai" } : {}),
-      ...(url ? { url } : {}),
-    };
-    if (!key && !url) {
-      throw new Error("Nothing to save. Pipe an API key into agentkit init --with-token, for example: pbpaste | agentkit init --with-token");
-    }
-    await writeConfig(next);
-    if (globalOpts().json) out({ saved: true });
-    else console.log(`Saved config to ${configPath()}${key ? "\nVerify with: agentkit agents list" : ""}`);
-  });
-
-program.command("logout").description("Remove saved credentials; environment variables and server keys remain active")
-  .option("--session", "Remove only the saved user session token")
-  .action(async (opts: { session?: boolean }) => {
-    const config = await readConfig();
-    if (opts.session) {
-      const { sessionToken: _token, sessionUrl: _origin, ...rest } = config;
-      await writeConfig(rest);
-      out({ loggedOut: true, scope: "session" });
-      return;
-    }
-    await writeConfig(config.url ? { url: config.url } : {});
-    out({ loggedOut: true, serverKeyRevoked: false });
-  });
 program.command("projects").description("Manage user aliases")
   .option("--add <values...>", "Register alias and UUID")
   .option("--remove <alias>", "Remove a local alias")
@@ -367,7 +320,7 @@ program
       const reason = thread.discarded ? emailReviewReason(thread.discardReason, thread.discardSource) : "";
       console.log([from, thread.subject, thread.status, thread.lastActivityAt, thread.id, reason].map(cell).join("\t"));
     }
-    if (list.pagination.hasMore) console.error(`\n(more: next cursor ${list.pagination.nextCursor})`);
+    if (list.pagination.hasMore && !globalOpts().quiet) console.error(`\n(more: next cursor ${list.pagination.nextCursor})`);
   });
 
 program
@@ -501,7 +454,7 @@ program
     });
     if (opts.json) return out(agent);
     console.log(`Created agent ${agent.id} (${agent.name})`);
-    console.error(`Register an alias: agentkit projects --add <alias> ${agent.id}`);
+    if (!globalOpts().quiet) console.error(`Register an alias: agentkit projects --add <alias> ${agent.id}`);
   });
 
 program
@@ -541,7 +494,7 @@ program
     const { agentId, client } = await projectClient(project);
     const agent = await client.getAgent(agentId);
     if (opts.json) return out(agent);
-    console.log(`# ${cell(agent.name)} (${agent.id})`);
+    console.log(`${globalOpts().plain ? "" : "# "}${cell(agent.name)} (${agent.id})`);
     console.log(`url:   ${agent.url ?? "-"}`);
     console.log(`model: ${aiValue(agent.settings, "model") ?? "-"}`);
     console.log(`preset: ${aiValue(agent.settings, "instructionsPreset") ?? "-"}`);
@@ -1392,14 +1345,6 @@ async function readTextInput(
   return text;
 }
 
-/** Read all of stdin (for piped prompts/content). Empty string if it's a TTY. */
-async function readStdin(): Promise<string> {
-  if (process.stdin.isTTY) return "";
-  const chunks: Buffer[] = [];
-  for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
-  return Buffer.concat(chunks).toString("utf8");
-}
-
 function parseRating(rating: string): Feedback {
   const r = rating.toLowerCase();
   if (r === "positive" || r === "good") return "positive";
@@ -1409,6 +1354,8 @@ function parseRating(rating: string): Feedback {
 }
 
 registerCommands(program);
+registerAuthCommands(program, globalOpts, cancellation.signal, out, cell);
+registerApiCommand(program, globalOpts, cancellation.signal, out);
 const copies = new Command().configureHelp({ showGlobalOptions: true }).exitOverride().configureOutput({ outputError: () => {}, writeErr: str => process.stdout.write(str) });
 registerCommands(copies);
 const groups: Record<string, Record<string, string>> = {
@@ -1459,7 +1406,7 @@ for (const [name, commands] of Object.entries(groups)) {
   }
 }
 // Resource commands are canonical; flat spellings retain their handlers and flags.
-const legacyNames = new Set(Object.values(groups).flatMap(commands => Object.values(commands)));
+const legacyNames = new Set(["init", "logout", ...Object.values(groups).flatMap(commands => Object.values(commands))]);
 program.configureHelp({
   visibleCommands: command => command.commands.filter(child => !legacyNames.has(child.name()) || child.commands.length > 0),
 });
@@ -1472,6 +1419,7 @@ const mcp = program.command("mcp").description("Connect MCP clients or run the r
   });
 registerMcpCommands(mcp);
 registerEmailCommands(program, managementProjectClient, emailReadProjectClient, out);
+registerAgentDefaults(program, out);
 // Summaries list subcommands, including those added by registerEmailCommands.
 for (const command of program.commands) {
   if (command.commands.length) command.summary(`${groupDescriptions[command.name()] ?? command.description()} (${command.commands.map(c => c.name()).join(", ")})`);

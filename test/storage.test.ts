@@ -98,7 +98,7 @@ it("uses a newly bound session without sending the saved key from another origin
   await writeConfig({ key: "production-key", url: "https://agentkit.ai" });
   await writeConfig({ ...await readConfig(), url: "https://staging.example", sessionToken: "staging-jwt", sessionUrl: "https://staging.example" });
   expect(await resolveConfig({}, { requireKey: false, allowSession: true })).toEqual({
-    url: "https://staging.example", key: "", sessionToken: "staging-jwt",
+    url: "https://staging.example", key: "", sessionToken: "staging-jwt", sessionLocation: "config",
   });
   await expect(resolveConfig()).rejects.toThrow("different origin");
 });

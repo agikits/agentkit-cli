@@ -16,7 +16,7 @@ let server;
 const env = { ...process.env, AGENTKIT_CONFIG_DIR: path.join(temp, 'config') };
 for (const key of Object.keys(env)) if (key.startsWith('AGENTKIT_') && key !== 'AGENTKIT_CONFIG_DIR') delete env[key];
 async function run(command, args, cwd = root, extraEnv = {}) {
-  return exec(command === npm ? process.execPath : command, command === npm ? [npmPath, ...args] : args, { cwd, env: { ...env, ...extraEnv }, timeout: 60000, maxBuffer: 4 * 1024 * 1024 });
+  return exec(command === npm ? process.execPath : command, command === npm ? [npmPath, ...args] : args, { cwd, env: { ...env, ...extraEnv }, timeout: process.platform === 'win32' ? 300000 : 60000, maxBuffer: 4 * 1024 * 1024 });
 }
 async function verifyMcp(command, args, cwd) {
   const child = spawn(command, args, { cwd, env: { ...env, AGENTKIT_API_KEY: 'package-verification-fake-key' }, stdio: ['pipe', 'pipe', 'pipe'] });
@@ -147,5 +147,6 @@ try {
   console.log(`Verified ${packed.files.length} packed files, isolated SDK/MCP exports, protocol-only MCP bins, health, npm exec and global install.`);
 } finally {
   if (server) await new Promise(resolve => server.close(resolve));
-  await rm(temp, { recursive: true, force: true });
+  // Windows can hold handles from child npm processes briefly after they exit.
+  await rm(temp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 }

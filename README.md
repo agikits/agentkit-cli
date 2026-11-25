@@ -5,46 +5,49 @@ Node.js. The package exports an ESM SDK, the `agentkit` executable and the `agen
 executable. Node 22+ is required. The SDK import does not load Commander; the combined package installs
 Commander for the CLI.
 
-Version 0.2.2, MIT license, published on npm as `@agikits/agentkit`:
+The MIT-licensed package is published on npm as `@agikits/agentkit`. These
+examples use the unreleased 0.3.0 CLI. To try it from this checkout, run
+`npm ci` and invoke `node dist/cli/index.js` in place of `agentkit`.
 
-```sh
-npm install -g @agikits/agentkit
-pbpaste | agentkit init --with-token     # macOS; on Windows: Get-Clipboard | agentkit init --with-token
-agentkit agents list
-```
-
-Or run without a global install: `npx -p @agikits/agentkit agentkit agents list`.
-Setup guide: https://agentkit.ai/docs/developer/cli-and-mcp
+Install the published CLI with `npm install -g @agikits/agentkit`, or run it
+with `npx -p @agikits/agentkit agentkit`. See the
+[CLI and MCP setup guide](https://agentkit.ai/docs/developer/cli-and-mcp).
 
 ## Connect
 
-Obtain an API key from your Agentkit dashboard. API calls require the appropriate
-workspace entitlement. Keys reach every agent in that workspace; keep them on a
-trusted server, never in a browser bundle.
+Run `agentkit auth login --browser` to approve access to a workspace. The CLI
+prints an activation code and URL, opens the browser in an interactive terminal,
+and saves the API key after you approve. For a manual key from the Agentkit
+dashboard, run `agentkit auth login` and paste it at the hidden prompt. In scripts,
+pipe the key from a secret manager into `agentkit auth login --with-token` or set
+`AGENTKIT_API_KEY`.
 
 ```sh
-export AGENTKIT_API_KEY='your-token'
+agentkit auth status
 agentkit agents list --json
-agentkit agents info <agent-uuid> --json
 agentkit projects --add demo <agent-uuid>
-agentkit sources list demo --json
+agentkit config set agent demo
+agentkit sources list --json
 ```
 
-Email setup and thread actions, Center Stage, Widgets and most Backstage commands require a short-lived Supabase
-user access token from an authenticated Agentkit session. Set
-`AGENTKIT_SESSION_TOKEN`, or pipe it to `agentkit init --with-session-token`.
-Saved API keys and session tokens are bound to their configured origin. Sessions
-expire normally and are
-never refreshed by the CLI. Workspace API keys can read the inbox, edit reviewed drafts and send reviewed draft revisions.
-Other email writes require a user session. Draft approval uses the key identity in the send audit.
-All 75 pinned API paths and every component match the specification published at
-agentkit.ai, observed 2026-11-23, including workspace-key draft approval and upload reservations.
-`contracts/provenance.json` records the compared product source and schema hashes.
-Authenticated runtime acceptance remains a separate release gate.
-Session, rollout and paid-plan requirements still apply.
+`auth status` shows the workspace, credential source, scopes and where the
+credential came from. Workspace keys reach every agent in the workspace within
+their granted scopes. Keep keys on trusted systems, out of browser bundles and
+shell history. A scope error names the permission the request requires.
 
-A secret manager can pipe a token into `agentkit init --with-token`. Avoid putting
-keys in command arguments or shell history. Config lives in
+Session-only commands for Widgets, actions, secrets, Center Stage, Backstage
+and email use a short-lived Supabase access token. Set `AGENTKIT_SESSION_TOKEN`
+or pipe the token to `agentkit auth login --with-session-token`. Saved API keys
+and session tokens are bound to their configured origin. The CLI lets sessions
+expire on the server's schedule. Workspace keys can read the inbox and edit,
+send, discard or restore reviewed email items within their scopes.
+The November 23 baseline matches the published API specification, including
+workspace-key draft approval and upload reservations. The 0.3.0 auth commands
+require a server with the new v2 auth endpoints. See
+[contract provenance](contracts/provenance.json) for the deployed baseline and
+the auth candidate.
+
+The CLI sends no telemetry. Config lives in
 `~/.config/agentkit/config.json`, or `AGENTKIT_CONFIG_DIR/config.json`. On POSIX,
 config writes use a 0700 directory and atomically replace a 0600 file. Symlinks
 and malformed files are rejected. Windows access follows the user's directory ACL.
@@ -55,10 +58,11 @@ Endpoints must be HTTPS origins; explicit loopback HTTP is accepted for local
 servers. Redirects, URL credentials, paths and query strings are rejected.
 Aliases never override endpoints. No automatic `.env` or repository config loading.
 
-`logout` removes both saved credentials; `logout --session` removes only the session token.
-An expired saved session no longer shadows a valid API key on management commands. Environment variables and server keys remain
-active; revoke a key in the dashboard. `health` is an unauthenticated connectivity
-check, not an authentication or entitlement test.
+`agentkit auth logout` revokes the saved API key on the server and clears saved
+credentials. If revocation fails, it reports the failure and still clears the
+local credentials. Use `auth logout --session` to remove only the saved session.
+For a key supplied through an environment variable, revoke it in the dashboard
+and unset the variable. Use `agentkit health` to check server connectivity.
 
 ## Commands
 
@@ -80,6 +84,27 @@ agentkit secrets list demo --json
 agentkit widgets list demo --json
 agentkit backstage overview demo --json
 ```
+
+Commands with a project argument use the explicit project first, then
+`AGENTKIT_AGENT_ID`, then the value saved by `agentkit config set agent <id|alias>`.
+For example, `agentkit conversations get <conversation-id>` uses the default
+agent. If a command also has an optional trailing argument and both forms fit,
+a UUID or registered alias in the first position selects the project.
+
+```sh
+agentkit api GET /api/v2/agents --query limit=10
+agentkit api PATCH /api/v2/agents/<agent-uuid> -f 'name=Help desk'
+agentkit api POST /api/v2/agents --body @request.json
+```
+
+`agentkit api` accepts v2 paths beginning with `/api/v2/` and prints the JSON
+response. Pass inline JSON, `@file` or `@-` for piped stdin with `--body`.
+Repeat `-f key=value` for string fields in a JSON object, or use `--body` for
+typed values. Repeat `--query key=value` for query parameters.
+
+Use `--plain` for compact JSON and undecorated text, `--quiet` to hide progress
+and hints, or `--no-input` to disable prompts and automatic browser opening.
+Browser sign-in still prints the code and URL for manual approval.
 
 `chat` defaults to the Playground channel for testing. Use `--channel api_v2`
 for customer API conversations, including when continuing an existing API chat.
@@ -169,7 +194,7 @@ job ID and retrain flag, not a document ID. Security rate limits are objects wit
 
 ## Connect an MCP client
 
-After you save your workspace key with `agentkit init --with-token`, register
+After you save your workspace key with `agentkit auth login`, register
 Agentkit with your coding agent. The local server reads the same login. You can
 register it before signing in, too.
 
@@ -222,7 +247,7 @@ session store. Public remote connectors still need a hosted HTTPS endpoint.
 After `npm install -g @agikits/agentkit`, configure your MCP client with this entry.
 `agentkit mcp` is an equivalent command for package launchers that select the
 default executable.
-Use `agentkit init --with-token` to save a workspace key on stdin first.
+Use `agentkit auth login` to save a workspace key first.
 
 ```json
 {

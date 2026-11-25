@@ -1,6 +1,6 @@
 {
   "name": "@agikits/agentkit",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Agentkit SDK, CLI and stateless MCP for managing AI chatbots.",
   "type": "module",
   "private": false,

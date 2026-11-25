@@ -1,5 +1,33 @@
 [
   {
+    "operationId": "requestDeviceCode",
+    "method": "POST",
+    "path": "/auth/device/code",
+    "sdk": null,
+    "cli": "auth login --browser"
+  },
+  {
+    "operationId": "redeemDeviceCode",
+    "method": "POST",
+    "path": "/auth/device/token",
+    "sdk": null,
+    "cli": "auth login --browser"
+  },
+  {
+    "operationId": "revokeCurrentKey",
+    "method": "DELETE",
+    "path": "/auth/key",
+    "sdk": null,
+    "cli": "auth logout"
+  },
+  {
+    "operationId": "getCurrentCredential",
+    "method": "GET",
+    "path": "/me",
+    "sdk": null,
+    "cli": "auth status"
+  },
+  {
     "operationId": "getHealth",
     "method": "GET",
     "path": "/health",

@@ -23,5 +23,6 @@ without storing credentials or customer content.
 
 Restore only fields this operation changed, after checking nobody else changed
 them in the meantime. Do not replace an entire settings object with a stale
-snapshot. A local logout removes saved credentials, not environment variables
-or the server key. Revoke or replace the key in the dashboard.
+snapshot. `agentkit auth logout` revokes the saved API key and clears saved
+credentials. For an environment-managed key, revoke it in the dashboard and
+unset the variable.

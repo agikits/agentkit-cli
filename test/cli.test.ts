@@ -1,7 +1,7 @@
 import http from "node:http";
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
-import os from "node:os";
+import os, { hostname } from "node:os";
 import path from "node:path";
 import { beforeEach, afterEach, describe, expect, it } from "vitest";
 import { discardedEmail, emailThread } from "./fixtures/email.js";
@@ -24,9 +24,9 @@ beforeEach(async () => {
   url = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
 });
 afterEach(async () => { server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); await fs.rm(dir, { recursive: true, force: true }); });
-function bin(args: string[], stdin = "", env: Record<string, string> = {}) {
+function bin(args: string[], stdin = "", env: Record<string, string> = {}, useUrlFlag = true) {
   return new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve, reject) => {
-    const child = spawn(process.execPath, ["dist/cli/index.js", "--url", url, ...args], {
+    const child = spawn(process.execPath, ["dist/cli/index.js", ...(useUrlFlag ? ["--url", url] : []), ...args], {
       env: { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot, AGENTKIT_CONFIG_DIR: dir, ...env },
     });
     let stdout = "", stderr = "";
@@ -37,6 +37,324 @@ function bin(args: string[], stdin = "", env: Record<string, string> = {}) {
 function sse(events: unknown[], done = true) {
   respond = res => { res.setHeader("content-type", "text/event-stream"); res.end(events.map(e => `data: ${JSON.stringify(e)}\n\n`).join("") + (done ? "data: [DONE]\n\n" : "")); };
 }
+const account = { id: AGENT, slug: "acme", name: "Acme" };
+const deviceCode = "x".repeat(43);
+const deviceKey = "browser-test-key";
+const browserToken = { api_key: deviceKey, account, key: { id: AGENT, name: "CLI · test", source: "cli", scopes: ["read", "write", "delete", "export"] } };
+
+function mockDeviceFlow(poll: (res: http.ServerResponse) => void, expiresIn = 30) {
+  respond = res => {
+    if (requests.at(-1)?.url === "/api/v2/auth/device/code") {
+      res.end(JSON.stringify({
+        device_code: deviceCode, user_code: "BCDF-GHJK", verification_uri: `${url}/activate`,
+        verification_uri_complete: `${url}/activate?code=BCDF-GHJK`, expires_in: expiresIn, interval: 1,
+      }));
+    } else poll(res);
+  };
+}
+
+async function mockTerminal(tty: boolean) {
+  const preload = path.join(dir, "terminal.cjs");
+  const opened = path.join(dir, "opened");
+  await fs.writeFile(preload, `
+    const { EventEmitter } = require("node:events");
+    const { writeFileSync } = require("node:fs");
+    process.stdin.isTTY = ${tty};
+    process.stderr.isTTY = ${tty};
+    process.stdin.setRawMode = () => process.stdin;
+    require("node:child_process").spawn = (command, args) => {
+      writeFileSync(${JSON.stringify(opened)}, JSON.stringify({ command, args }));
+      const child = new EventEmitter();
+      child.unref = () => {};
+      queueMicrotask(() => child.emit("spawn"));
+      return child;
+    };
+    require("node:module").syncBuiltinESMExports();
+  `);
+  return { env: { NODE_OPTIONS: `--require="${preload.replaceAll("\\", "/")}"` }, opened };
+}
+
+describe("authentication", () => {
+  it("keeps legacy authentication spellings out of help", async () => {
+    const help = (await bin(["--help"])).stdout;
+    expect(help).toMatch(/^  auth /m);
+    expect(help).not.toMatch(/^  (init|logout) /m);
+    for (const args of [["auth", "login"], ["init"]]) {
+      const loginHelp = (await bin([...args, "--help"])).stdout;
+      expect(loginHelp).toContain("--with-token");
+      expect(loginHelp).not.toContain("--with-session-token");
+    }
+  });
+
+  it("asks for a key on a terminal without echoing it", async () => {
+    const { env } = await mockTerminal(true);
+    const result = await bin(["auth", "login"], "test-prompt-key\n", env);
+    expect(result.code, result.stderr).toBe(0);
+    expect(result.stderr).toContain("Agentkit API key:");
+    expect(result.stdout + result.stderr).not.toContain("test-prompt-key");
+    expect(JSON.parse(await fs.readFile(path.join(dir, "config.json"), "utf8")).key).toBe("test-prompt-key");
+  });
+
+  it("gives portable instructions when key entry is unavailable", async () => {
+    const { env } = await mockTerminal(true);
+    for (const result of [
+      await bin(["auth", "login"]),
+      await bin(["auth", "login", "--no-input"], "", env),
+      await bin(["init"], "", { AGENTKIT_URL: url }, false),
+    ]) {
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("--with-token");
+      expect(result.stderr).not.toContain("pbpaste");
+    }
+    expect(requests).toHaveLength(0);
+  });
+
+  it.each([
+    { tty: true, noInput: false, opens: true },
+    { tty: true, noInput: true, opens: false },
+    { tty: false, noInput: false, opens: false },
+  ])("redeems a browser code even when opening a browser is disabled ($tty, $noInput)", async ({ tty, noInput, opens }) => {
+    const { env, opened } = await mockTerminal(tty);
+    mockDeviceFlow(res => res.end(JSON.stringify(browserToken)));
+    const result = await bin(["auth", "login", "--browser", ...(noInput ? ["--no-input", "--quiet"] : [])], "", {
+      ...env, AGENTKIT_URL: url, AGENTKIT_API_KEY: "ambient-key",
+    }, false);
+    expect(result.code, result.stderr).toBe(0);
+    expect(result.stderr).toContain("BCDF-GHJK");
+    expect(result.stderr).toContain(`${url}/activate`);
+    expect(result.stdout).toContain("Acme");
+    expect(result.stdout + result.stderr).not.toContain(deviceKey);
+    expect(requests.map(r => ({ ...r, body: JSON.parse(r.body) }))).toEqual([
+      expect.objectContaining({ method: "POST", url: "/api/v2/auth/device/code", auth: undefined, body: { client_name: hostname().trim().slice(0, 64) || "Agentkit CLI" } }),
+      expect.objectContaining({ method: "POST", url: "/api/v2/auth/device/token", auth: undefined, body: { device_code: deviceCode } }),
+    ]);
+    const saved = JSON.parse(await fs.readFile(path.join(dir, "config.json"), "utf8"));
+    expect(saved).toMatchObject({ key: deviceKey, keyUrl: url, url });
+    if (opens) {
+      const { args } = JSON.parse(await fs.readFile(opened, "utf8"));
+      expect(args.at(-1)).toBe(`${url}/activate?code=BCDF-GHJK`);
+    } else {
+      await expect(fs.access(opened)).rejects.toMatchObject({ code: "ENOENT" });
+    }
+  });
+
+  it("waits for authorization and honors the new interval after slow_down", async () => {
+    const polls: number[] = [];
+    mockDeviceFlow(res => {
+      polls.push(performance.now());
+      if (polls.length === 3) res.end(JSON.stringify(browserToken));
+      else {
+        res.statusCode = 400;
+        res.end(JSON.stringify(polls.length === 1 ? { error: "authorization_pending" } : { error: "slow_down", interval: 6 }));
+      }
+    });
+    const result = await bin(["--no-input", "auth", "login", "--browser"]);
+    expect(result.code, result.stderr).toBe(0);
+    expect(polls).toHaveLength(3);
+    expect(polls[1]! - polls[0]!).toBeGreaterThanOrEqual(990);
+    expect(polls[2]! - polls[1]!).toBeGreaterThanOrEqual(5990);
+  }, 12_000);
+
+  it.each([
+    ["expired_token", 400, "expired"],
+    ["access_denied", 400, "denied"],
+    ["access_denied", 403, "denied"],
+    ["invalid_grant", 400, "invalid or was already used"],
+    ["key_limit_reached", 409, "API key limit"],
+  ])("stops polling on %s (%d)", async (error, status, message) => {
+    mockDeviceFlow(res => {
+      res.statusCode = status;
+      res.end(JSON.stringify({ error }));
+    });
+    const result = await bin(["auth", "login", "--browser"]);
+    expect(result.code).toBe(1);
+    const output = result.stderr.trim().split("\n").at(-1)!;
+    expect(JSON.parse(output).error).toMatchObject({ code: error, status, message: expect.stringContaining(message) });
+    expect(requests).toHaveLength(2);
+    await expect(fs.access(path.join(dir, "config.json"))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("stops locally when the device code reaches its deadline", async () => {
+    mockDeviceFlow(res => res.end(JSON.stringify(browserToken)), 1);
+    const result = await bin(["auth", "login", "--browser"]);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("sign-in code expired");
+    expect(requests).toHaveLength(1);
+  });
+
+  it("reports an environment API key or session without exposing the token", async () => {
+    respond = res => {
+      const source = requests.at(-1)?.authMode === "session" ? "session" : "cli";
+      res.end(JSON.stringify({ account, credential: { source, key_id: source === "cli" ? AGENT : null, name: null, scopes: ["read", "export"] } }));
+    };
+    const key = await bin(["auth", "status"], "", { AGENTKIT_API_KEY: "env-status-key" });
+    expect(key.code, key.stderr).toBe(0);
+    expect(key.stdout).toContain("cli (environment variable)");
+    expect(key.stdout).toContain("Acme");
+    expect(key.stdout).toContain("read, export");
+    expect(key.stdout).not.toContain("env-status-key");
+    const session = await bin(["auth", "status", "--json"], "", { AGENTKIT_SESSION_TOKEN: "env-status-session" });
+    expect(session.code, session.stderr).toBe(0);
+    expect(JSON.parse(session.stdout)).toMatchObject({ credential: { source: "session" }, credentialLocation: "env" });
+    expect(session.stdout).not.toContain("env-status-session");
+    expect(requests).toMatchObject([
+      { method: "GET", url: "/api/v2/me", auth: "Bearer env-status-key", authMode: undefined },
+      { method: "GET", url: "/api/v2/me", auth: "Bearer env-status-session", authMode: "session" },
+    ]);
+  });
+
+  it("reports a multi-workspace session without a selected workspace", async () => {
+    respond = res => res.end(JSON.stringify({ account: null, credential: { source: "session", key_id: null, name: null, scopes: ["read", "write", "delete", "export"] } }));
+    const result = await bin(["auth", "status"], "", { AGENTKIT_SESSION_TOKEN: "env-multi-session" });
+    expect(result.code, result.stderr).toBe(0);
+    expect(result.stdout).toContain("Workspace: (none selected");
+    expect(result.stdout).toContain("session (environment variable)");
+  });
+
+  it.each([204, 503])("removes the saved key after server revocation returns %d", async status => {
+    const login = await bin(["auth", "login", "--with-token"], "saved-test-key");
+    expect(login.code, login.stderr).toBe(0);
+    respond = res => { res.statusCode = status; res.end(); };
+    const result = await bin(["auth", "logout"], "", { AGENTKIT_API_KEY: "ambient-key" });
+    expect(result.code, result.stderr).toBe(0);
+    expect(requests).toMatchObject([{ method: "DELETE", url: "/api/v2/auth/key", auth: "Bearer saved-test-key" }]);
+    expect(JSON.parse(result.stdout)).toMatchObject({ loggedOut: true, serverKeyRevoked: status === 204 });
+    if (status === 503) expect(result.stderr).toContain("removed locally");
+    expect(JSON.parse(await fs.readFile(path.join(dir, "config.json"), "utf8"))).toEqual({ url });
+  });
+
+  it("keeps the saved key bound to its origin during logout", async () => {
+    expect((await bin(["auth", "login", "--with-token"], "origin-test-key")).code).toBe(0);
+    const result = await bin(["--url", "http://127.0.0.1:1", "auth", "logout"]);
+    expect(result.code, result.stderr).toBe(0);
+    expect(result.stderr).toContain("removed locally");
+    expect(requests).toHaveLength(0);
+    expect(JSON.parse(await fs.readFile(path.join(dir, "config.json"), "utf8"))).toEqual({ url });
+  });
+});
+
+describe("raw API requests", () => {
+  it("sends JSON from an argument, file or stdin and prints the complete response", async () => {
+    const file = path.join(dir, "request.json");
+    await fs.writeFile(file, '[1, true]');
+    const response = { data: { id: "example" }, pagination: { hasMore: false } };
+    respond = res => res.end(JSON.stringify(response));
+    const cases = [
+      { arg: '{"name":"Demo"}', body: { name: "Demo" } },
+      { arg: `@${file}`, body: [1, true] },
+      { arg: "@-", input: "false", body: false },
+    ];
+    for (const { arg, input, body } of cases) {
+      const result = await bin(["api", "post", "/api/v2/agents?first=0", "--body", arg, "--query", "tag=a b", "--query", "tag=c=d"], input, { AGENTKIT_API_KEY: "api-test-key" });
+      expect(result.code, result.stderr).toBe(0);
+      expect(JSON.parse(result.stdout)).toEqual(response);
+      const request = requests.at(-1)!;
+      expect(request).toMatchObject({ method: "POST", auth: "Bearer api-test-key", url: "/api/v2/agents?first=0&tag=a+b&tag=c%3Dd" });
+      expect(JSON.parse(request.body)).toEqual(body);
+    }
+  });
+
+  it("accepts repeated string fields and prints compact JSON with --plain", async () => {
+    respond = res => res.end('{"updated":true}');
+    const result = await bin(["--plain", "api", "PATCH", "/api/v2/agents/123", "-f", "enabled=true", "-f", "text=a=b", "-f", "blank="]);
+    expect(result.code, result.stderr).toBe(0);
+    expect(result.stdout).toBe('{"updated":true}\n');
+    expect(JSON.parse(requests[0]!.body)).toEqual({ enabled: "true", text: "a=b", blank: "" });
+  });
+
+  it.each([
+    ["GET", "/api/v1/agents"],
+    ["GET", "https://example.test/api/v2/agents"],
+    ["GET", "/api/v2/../agents"],
+    ["GET", "/api/v2/%2e%2e/agents"],
+    ["GET", "/api/v2/%2e%2e%2fagents"],
+    ["GET", "/api/v2/agents#fragment"],
+    ["GET", "/api/v2/agents", "--query", "missing"],
+    ["POST", "/api/v2/agents", "--body", "invalid"],
+    ["POST", "/api/v2/agents", "--body", "null", "-f", "a=b"],
+    ["POST", "/api/v2/agents", "-f", "=missing-key"],
+  ])("rejects malformed input before making a request (%s %s)", async (...args) => {
+    const result = await bin(["api", ...args]);
+    expect(result.code).toBe(1);
+    expect(requests).toHaveLength(0);
+  });
+
+  it("names the scope required by a 403 for both raw and wrapped requests", async () => {
+    respond = res => {
+      res.statusCode = 403;
+      res.end(JSON.stringify({ error: "insufficient_scope", required: "read" }));
+    };
+    for (const args of [["api", "GET", "/api/v2/agents"], ["agents", "info", AGENT]]) {
+      const result = await bin(args, "", { AGENTKIT_API_KEY: "read-test-key" });
+      expect(result.code).toBe(1);
+      expect(JSON.parse(result.stderr).error).toMatchObject({ code: "insufficient_scope", status: 403, message: expect.stringContaining("read scope") });
+    }
+  });
+});
+
+describe("default agents", () => {
+  it("chooses the explicit agent, environment or config in that order", async () => {
+    const explicit = "00000000-0000-4000-8000-000000000010";
+    const environment = "00000000-0000-4000-8000-000000000020";
+    expect((await bin(["auth", "login", "--with-token"], "saved-agent-key")).code).toBe(0);
+    expect((await bin(["projects", "--add", "demo", AGENT])).code).toBe(0);
+    const config = await bin(["config", "set", "agent", "demo"]);
+    expect(config.code, config.stderr).toBe(0);
+    expect((await bin(["agents", "info", explicit], "", { AGENTKIT_AGENT_ID: environment })).code).toBe(0);
+    expect((await bin(["agents", "info"], "", { AGENTKIT_AGENT_ID: environment })).code).toBe(0);
+    expect((await bin(["agents", "info"])).code).toBe(0);
+    expect(requests.map(r => r.url)).toEqual([explicit, environment, AGENT].map(id => `/api/v2/agents/${id}`));
+    expect(requests[2]?.auth).toBe("Bearer saved-agent-key");
+  });
+
+  it("allows omitted projects before other arguments in grouped and flat commands", async () => {
+    const env = { AGENTKIT_AGENT_ID: AGENT, AGENTKIT_API_KEY: "agent-test-key" };
+    for (const args of [["conversations", "get", "thread"], ["conversation", "thread"], ["emails", "get", "thread"], ["email", "thread"]]) {
+      respond = res => res.end(JSON.stringify({ data: emailThread }));
+      const result = await bin([...args, "--json"], "", env);
+      expect(result.code, result.stderr).toBe(0);
+    }
+    respond = res => res.end(JSON.stringify({ data: { id: "message" } }));
+    const chat = await bin(["chat", "Hello from the default agent", "--no-stream"], "", env);
+    expect(chat.code, chat.stderr).toBe(0);
+    expect(JSON.parse(requests.at(-1)!.body)).toMatchObject({ message: "Hello from the default agent" });
+    expect(requests.map(r => r.url)).toEqual([
+      `/api/v2/agents/${AGENT}/conversations/thread?source=all`,
+      `/api/v2/agents/${AGENT}/conversations/thread?source=all`,
+      `/api/v2/agents/${AGENT}/emails/thread`,
+      `/api/v2/agents/${AGENT}/emails/thread`,
+      `/api/v2/agents/${AGENT}/chat`,
+    ]);
+  });
+
+  it("keeps established explicit forms with optional trailing arguments", async () => {
+    const env = { AGENTKIT_AGENT_ID: AGENT, AGENTKIT_API_KEY: "agent-test-key" };
+    const explicit = "00000000-0000-4000-8000-000000000010";
+    const config = await bin(["projects", "--add", "other", explicit]);
+    expect(config.code, config.stderr).toBe(0);
+    for (const [args, stdin] of [
+      [["settings", "instructions", "other"], "Piped explicit prompt"],
+      [["settings", "instructions", "Default agent prompt"], ""],
+    ] as const) {
+      const result = await bin([...args, "--json"], stdin, env);
+      expect(result.code, result.stderr).toBe(0);
+    }
+    expect(requests.map(r => [r.url, JSON.parse(r.body).instructionsPrompt])).toEqual([
+      [`/api/v2/agents/${explicit}/settings/ai`, "Piped explicit prompt"],
+      [`/api/v2/agents/${AGENT}/settings/ai`, "Default agent prompt"],
+    ]);
+  });
+
+  it("requires an agent when no default is set and keeps required trailing arguments", async () => {
+    const env = { AGENTKIT_API_KEY: "agent-test-key" };
+    const missing = await bin(["agents", "info"], "", env);
+    expect(missing.stderr).toContain("AGENTKIT_AGENT_ID");
+    const missingThread = await bin(["conversations", "get"], "", { ...env, AGENTKIT_AGENT_ID: AGENT });
+    expect(missingThread.stderr).toContain("conversationId");
+    expect(requests).toHaveLength(0);
+  });
+});
+
 describe("installed-style executable", () => {
   it("runs help/version offline and rejects unknown commands", async () => {
     expect((await bin(["--help"])).code).toBe(0);
@@ -64,6 +382,18 @@ describe("installed-style executable", () => {
     respond = res => res.end(JSON.stringify({ data: [{ id: "c1", status: "open", userId: null, title: "Hi\u001b[31m\nthere\u0007" }], pagination: { cursor: null, hasMore: false, total: 1 } }));
     const list = await bin(["conversations", "list", AGENT, "--key", "test-key"]);
     expect(list.stdout).toBe("c1\topen\t-\tHi there \n");
+  });
+  it("hides cursor hints with --quiet and preserves result rows", async () => {
+    respond = res => res.end(JSON.stringify({
+      data: [{ id: AGENT, name: "Test" }],
+      pagination: { hasMore: true, cursor: "next" },
+    }));
+    const regular = await bin(["agents", "list"], "", { AGENTKIT_API_KEY: "test-key" });
+    const quiet = await bin(["agents", "list", "--quiet"], "", { AGENTKIT_API_KEY: "test-key" });
+    expect(quiet.code, quiet.stderr).toBe(0);
+    expect(regular.stderr).toContain("next cursor");
+    expect(quiet.stderr).toBe("");
+    expect(quiet.stdout).toBe(regular.stdout);
   });
   it("reads a conversation from any source by default", async () => {
     respond = res => res.end(JSON.stringify({ data: { id: "c1", title: "t", messages: [] } }));
@@ -112,7 +442,7 @@ describe("installed-style executable", () => {
       expect(request).toMatchObject({ method: row.method, url: `/api/v2/agents/${AGENT}${row.suffix}`, auth: "Bearer session" });
       expect(request.body ? JSON.parse(request.body) : undefined).toEqual(row.body);
     }
-  });
+  }, 30_000);
   it("rejects unsafe email inputs and key-only setup access without making requests", async () => {
     const cases = [
       ["emails", "list", AGENT, "--status", "wrong"], ["emails", "list", AGENT, "--since", "yesterday"],
@@ -344,6 +674,17 @@ describe("installed-style executable", () => {
     respond = () => {};
     const result = await bin(["--key", "test-key", "--timeout", "1000", "info", AGENT]);
     expect(result.code).toBe(1); expect(JSON.parse(result.stderr).error.code).toBe("REQUEST_TIMEOUT"); expect(requests).toHaveLength(1);
+  });
+  it("saves a piped API key and reports its source, workspace and scopes", async () => {
+    const credential = { source: "manual", key_id: AGENT, name: "My key", scopes: ["read"] };
+    respond = res => res.end(JSON.stringify({ account, credential }));
+    const login = await bin(["auth", "login", "--with-token"], "local-test-key\n");
+    expect(login.code, login.stderr).toBe(0);
+    const status = await bin(["auth", "status", "--json"]);
+    expect(status.code, status.stderr).toBe(0);
+    expect(JSON.parse(status.stdout)).toMatchObject({ account, credential, credentialLocation: "config" });
+    expect(requests).toMatchObject([{ method: "GET", url: "/api/v2/me", auth: "Bearer local-test-key" }]);
+    expect(login.stdout + status.stdout).not.toContain("local-test-key");
   });
   it("supports stdin auth, alias migration, canonical env precedence, and logout", async () => {
     expect((await bin(["init", "--with-token"], "saved-key")).code).toBe(0);
