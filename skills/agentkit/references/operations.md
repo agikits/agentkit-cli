@@ -26,3 +26,14 @@ them in the meantime. Do not replace an entire settings object with a stale
 snapshot. `agentkit auth logout` revokes the saved API key and clears saved
 credentials. For an environment-managed key, revoke it in the dashboard and
 unset the variable.
+
+## Knowledge and MCP
+
+Use `agentkit sources get <agent> <documentId> --json` to read stored content.
+Use `agentkit sources update <agent> <documentId>` with the fields to change.
+Read back the same document ID to verify the edit.
+
+`agentkit mcp add <client>` registers the hosted HTTP endpoint. The client
+opens workspace OAuth consent. Use `--local` for a stdio registration with
+a workspace API key. Local `--agent` restricts agent IDs. Local grants for
+writes, source deletion and transcript export each have their own flag.

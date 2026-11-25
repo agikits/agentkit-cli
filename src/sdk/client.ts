@@ -48,6 +48,9 @@ import type {
   Paginated,
   SecuritySettings,
   SourceDocument,
+  SourceDetail,
+  UpdateSourceRequest,
+  CurrentCredential,
   StreamEvent,
   TrainStatus,
   TrainingJob,
@@ -384,6 +387,10 @@ export class AgentkitClient {
     return this.streamRequest(`/api/v2/agents/${enc(agentId)}/conversations/${enc(conversationId)}/tool-result`, result);
   }
 
+  whoami(): Promise<CurrentCredential> {
+    return this.request("GET", "/api/v2/me", undefined, "management");
+  }
+
   // ---- management: agent lifecycle ----
 
   /** GET /api/v2/agents — list agents in the key's account. */
@@ -498,6 +505,16 @@ export class AgentkitClient {
       "GET",
       `/api/v2/agents/${enc(agentId)}/sources${this.q(options)}`,
     );
+  }
+
+  async getSource(agentId: string, documentId: string): Promise<SourceDetail> {
+    const { data } = await this.request<{ data: SourceDetail }>("GET", `${managementPath(agentId)}/sources/${enc(documentId)}`);
+    return data;
+  }
+
+  async updateSource(agentId: string, documentId: string, patch: UpdateSourceRequest): Promise<SourceDetail> {
+    const { data } = await this.request<{ data: SourceDetail }>("PATCH", `${managementPath(agentId)}/sources/${enc(documentId)}`, patch);
+    return data;
   }
 
   addTextSource(agentId: string, src: AddTextSource): Promise<CreatedSource> {
@@ -738,7 +755,7 @@ export class AgentkitClient {
   getCustomApiAction(agentId: string, actionId: string): Promise<CustomApiAction> { return this.managementRequest(`${managementPath(agentId)}/actions/${enc(actionId)}`, "GET"); }
   createCustomApiAction(agentId: string, request: CreateCustomApiActionRequest): Promise<CustomApiAction> { return this.managementRequest(`${managementPath(agentId)}/actions`, "POST", request, true); }
   updateCustomApiAction(agentId: string, actionId: string, request: UpdateCustomApiActionRequest): Promise<CustomApiAction> { return this.managementRequest(`${managementPath(agentId)}/actions/${enc(actionId)}`, "PATCH", request, true); }
-  setCustomApiActionStatus(agentId: string, actionId: string, request: SetCustomApiActionStatusRequest): Promise<CustomApiAction> { return this.managementRequest(`${managementPath(agentId)}/actions/${enc(actionId)}/status`, "PATCH", request, true); }
+  setCustomApiActionStatus(agentId: string, actionId: string, request: SetCustomApiActionStatusRequest): Promise<CustomApiAction> { return this.managementRequest(`${managementPath(agentId)}/actions/${enc(actionId)}/status`, "PATCH", request, false); }
   deleteCustomApiAction(agentId: string, actionId: string, request: DeleteCustomApiActionRequest): Promise<{ deleted: true; id: string }> { return this.managementRequest(`${managementPath(agentId)}/actions/${enc(actionId)}`, "DELETE", request, true); }
   listAgentSecrets(agentId: string): Promise<{ data: SecretMetadata[] }> { return this.managementRequest(`${managementPath(agentId)}/secrets`, "GET"); }
   setAgentSecret(agentId: string, name: string, request: SetAgentSecretRequest): Promise<SecretMetadata> { return this.managementRequest(`${managementPath(agentId)}/secrets/${enc(name)}`, "PUT", request, true); }

@@ -3,7 +3,7 @@
   "info": {
     "title": "Agentkit API",
     "version": "2.0.0",
-    "description": "This document describes the Agentkit v2 API. The /api/v1 API is legacy and intentionally undocumented. Developer documentation: https://agentkit.ai/docs/developer",
+    "description": "This document describes the Agentkit v2 API. The /api/v1 API is legacy and intentionally undocumented. Authenticated requests are rate-limited per API key or user session, with the same limits on every plan: 300 requests per minute overall, 30 chat or retry requests per minute, and per agent 60 source edits or new URL, text or Q&A sources per minute and 6 retrains per hour. A request over a limit returns 429 RATE_LIMIT_TOO_MANY_REQUESTS with a Retry-After header. Developer documentation: https://agentkit.ai/docs/developer",
     "termsOfService": "https://agentkit.ai/terms-of-service",
     "contact": {
       "name": "Agentkit support",
@@ -26,270 +26,6 @@
     }
   ],
   "paths": {
-    "/auth/device/code": {
-      "post": {
-        "operationId": "requestDeviceCode",
-        "summary": "Start CLI browser sign-in",
-        "security": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DeviceCodeRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Device and activation codes issued.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeviceCode"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "429": {
-            "description": "Too many codes requested from this IP.",
-            "headers": {
-              "Retry-After": {
-                "description": "Seconds until another request can be made.",
-                "schema": {
-                  "type": "integer",
-                  "minimum": 1
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "error"
-                  ],
-                  "properties": {
-                    "error": {
-                      "type": "string",
-                      "const": "rate_limited"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/auth/device/token": {
-      "post": {
-        "operationId": "redeemDeviceCode",
-        "summary": "Poll for CLI browser approval and redeem the device code",
-        "security": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DeviceTokenRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Single-use response containing the new workspace API key.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeviceToken"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request is pending, polling too quickly, expired, denied or invalid.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "type": "object",
-                      "additionalProperties": false,
-                      "required": [
-                        "error"
-                      ],
-                      "properties": {
-                        "error": {
-                          "type": "string",
-                          "enum": [
-                            "authorization_pending",
-                            "expired_token",
-                            "access_denied",
-                            "invalid_grant"
-                          ]
-                        }
-                      }
-                    },
-                    {
-                      "type": "object",
-                      "additionalProperties": false,
-                      "required": [
-                        "error",
-                        "interval"
-                      ],
-                      "properties": {
-                        "error": {
-                          "type": "string",
-                          "const": "slow_down"
-                        },
-                        "interval": {
-                          "type": "integer",
-                          "minimum": 1
-                        }
-                      }
-                    },
-                    {
-                      "$ref": "#/components/schemas/Error"
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The approver is no longer a workspace member.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "error"
-                  ],
-                  "properties": {
-                    "error": {
-                      "type": "string",
-                      "const": "access_denied"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The active API key limit has been reached.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "error"
-                  ],
-                  "properties": {
-                    "error": {
-                      "type": "string",
-                      "const": "key_limit_reached"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/auth/key": {
-      "delete": {
-        "operationId": "revokeCurrentKey",
-        "summary": "Revoke the calling API key, regardless of its scopes",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/OptionalSessionAuthMode"
-          }
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "sessionBearerAuth": []
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "The API key was revoked."
-          },
-          "400": {
-            "description": "The current credential is a session.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "error"
-                  ],
-                  "properties": {
-                    "error": {
-                      "type": "string",
-                      "const": "not_an_api_key"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          }
-        }
-      }
-    },
-    "/me": {
-      "get": {
-        "operationId": "getCurrentCredential",
-        "summary": "Get the calling credential's workspace and scopes",
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "sessionBearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/OptionalSessionAuthMode"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The current workspace and credential metadata.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CurrentCredential"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          }
-        }
-      }
-    },
     "/agents/{agentId}/channels": {
       "get": {
         "operationId": "listManagementChannels",
@@ -336,6 +72,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -389,6 +128,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -450,6 +192,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -510,6 +255,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -557,6 +305,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -612,6 +363,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -659,6 +413,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -714,6 +471,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -764,6 +524,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -822,6 +585,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -880,6 +646,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -940,6 +709,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -990,6 +762,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -1050,6 +825,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -1098,6 +876,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -1145,6 +926,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -1200,6 +984,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -1257,6 +1044,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -1307,6 +1097,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -1365,6 +1158,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -1413,6 +1209,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -1473,6 +1272,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -1536,6 +1338,9 @@
           },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -1586,6 +1391,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -1639,6 +1447,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -1689,6 +1500,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -1739,6 +1553,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -1786,6 +1603,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -1839,6 +1659,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -1889,6 +1712,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -1937,6 +1763,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -1987,6 +1816,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -2045,6 +1877,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -2101,6 +1936,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -2155,6 +1993,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -2293,6 +2134,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -2352,6 +2196,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -2421,6 +2268,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -2490,6 +2340,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -2546,6 +2399,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -2605,6 +2461,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -2671,6 +2530,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -2735,6 +2597,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -2794,6 +2659,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -2861,6 +2729,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -2930,6 +2801,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -2987,6 +2861,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -3034,6 +2911,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -3081,6 +2961,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -3136,6 +3019,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -3183,6 +3069,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -3238,6 +3127,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -3283,6 +3175,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -3340,6 +3235,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -3387,6 +3285,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -3442,6 +3343,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -3497,6 +3401,265 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        }
+      }
+    },
+    "/auth/device/code": {
+      "post": {
+        "operationId": "createDeviceCode",
+        "summary": "Start a CLI browser login",
+        "description": "Issues a device code for the CLI and a user code for the person to approve at the verification URL. No authentication. Limited to 10 codes per IP address per hour.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceCodeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A device code to poll with and a user code to show the person.",
+            "headers": {
+              "x-request-id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceCode"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "429": {
+            "description": "Too many codes were requested from this IP address.",
+            "headers": {
+              "x-request-id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "Retry-After": {
+                "$ref": "#/components/headers/RetryAfter"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "rate_limited"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/device/token": {
+      "post": {
+        "operationId": "redeemDeviceCode",
+        "summary": "Poll for the API key of a CLI browser login",
+        "description": "Poll at the interval returned with the device code. Once the person approves, the response carries a new API key exactly once; the raw key is never stored. No authentication.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceTokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The login was approved. The key is returned once.",
+            "headers": {
+              "x-request-id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`authorization_pending`: keep polling. `slow_down`: polled inside the interval; use the returned `interval` from now on. `expired_token`: the code is older than 10 minutes. `access_denied`: the person pressed Deny. `invalid_grant`: unknown, already redeemed, or lost a concurrent redemption.",
+            "headers": {
+              "x-request-id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceTokenError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The approving user is no longer a member of the workspace.",
+            "headers": {
+              "x-request-id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "access_denied"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The workspace already has 25 active API keys.",
+            "headers": {
+              "x-request-id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "key_limit_reached"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/key": {
+      "delete": {
+        "operationId": "revokeCurrentApiKey",
+        "summary": "Revoke the calling API key",
+        "description": "Deletes the API key that authenticates the request. Any scope is enough. A user-session caller gets 400 `not_an_api_key`.",
+        "responses": {
+          "204": {
+            "description": "The key was revoked.",
+            "headers": {
+              "x-request-id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            }
+          },
+          "400": {
+            "description": "The caller used a user session, not an API key.",
+            "headers": {
+              "x-request-id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "not_an_api_key"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        }
+      }
+    },
+    "/me": {
+      "get": {
+        "operationId": "getCurrentCredential",
+        "summary": "Describe the calling credential",
+        "description": "Returns the workspace and the credential behind the request. Any scope is enough. For a user session, `account` is set only when the user belongs to exactly one workspace.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionBearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The workspace and credential.",
+            "headers": {
+              "x-request-id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentCredential"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -3563,6 +3726,9 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -3604,6 +3770,9 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -3642,6 +3811,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -3691,6 +3863,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -3727,6 +3902,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -3783,6 +3961,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -3804,6 +3985,9 @@
           },
           {
             "$ref": "#/components/parameters/ConversationSource"
+          },
+          {
+            "$ref": "#/components/parameters/ConversationUnread"
           }
         ],
         "responses": {
@@ -3833,6 +4017,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -3863,6 +4050,9 @@
           },
           {
             "$ref": "#/components/parameters/ConversationSource"
+          },
+          {
+            "$ref": "#/components/parameters/ConversationUnread"
           }
         ],
         "responses": {
@@ -3892,6 +4082,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -3939,6 +4132,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -3992,6 +4188,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -4052,6 +4251,9 @@
           },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -4115,6 +4317,9 @@
           "409": {
             "$ref": "#/components/responses/Conflict"
           },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
           "500": {
             "$ref": "#/components/responses/InternalServerError"
           }
@@ -4169,6 +4374,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -4203,6 +4411,9 @@
               ],
               "default": "api_v2"
             }
+          },
+          {
+            "$ref": "#/components/parameters/ConversationUnread"
           }
         ],
         "responses": {
@@ -4232,6 +4443,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -4294,6 +4508,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -4345,6 +4562,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -4396,6 +4616,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -4447,6 +4670,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           },
           "500": {
             "$ref": "#/components/responses/InternalServerError"
@@ -4562,6 +4788,9 @@
           "409": {
             "$ref": "#/components/responses/Conflict"
           },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
           "500": {
             "$ref": "#/components/responses/InternalServerError"
           }
@@ -4569,6 +4798,115 @@
       }
     },
     "/agents/{agentId}/sources/{documentId}": {
+      "get": {
+        "operationId": "getSource",
+        "summary": "Read a training source",
+        "description": "Requires read scope. Q&A entries also include their parsed questions and answer.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AgentId"
+          },
+          {
+            "$ref": "#/components/parameters/DocumentId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The source and its full stored content.",
+            "headers": {
+              "x-request-id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceDetailResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateSource",
+        "summary": "Edit a training source",
+        "description": "Requires write scope. Send at least one field for the stored source type. Q&A entries accept title, questions and answer. Other sources accept title and content. The stored content, including serialized Q&A, is limited to 262,144 UTF-8 bytes. A successful edit replaces the source and its embeddings together.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AgentId"
+          },
+          {
+            "$ref": "#/components/parameters/DocumentId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSourceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The source and its full stored content.",
+            "headers": {
+              "x-request-id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceDetailResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      },
       "delete": {
         "operationId": "deleteSource",
         "summary": "Delete a source",
@@ -4608,6 +4946,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -4664,6 +5005,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -4713,6 +5057,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -4764,6 +5111,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -4831,6 +5181,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -4869,6 +5222,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -4918,6 +5274,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -4956,6 +5315,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -5005,6 +5367,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -5043,6 +5408,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -5092,6 +5460,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -5130,6 +5501,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -5179,6 +5553,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -5217,6 +5594,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -5266,6 +5646,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -5304,6 +5687,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -5355,6 +5741,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -5393,6 +5782,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -5434,6 +5826,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -5489,6 +5884,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -5533,6 +5931,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -5588,6 +5989,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -5632,6 +6036,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -5690,6 +6097,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -5728,6 +6138,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -5781,6 +6194,9 @@
           "409": {
             "$ref": "#/components/responses/Conflict"
           },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
           "502": {
             "$ref": "#/components/responses/BadGateway"
           }
@@ -5821,6 +6237,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       },
@@ -5874,6 +6293,9 @@
           "409": {
             "$ref": "#/components/responses/Conflict"
           },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
           "502": {
             "$ref": "#/components/responses/BadGateway"
           }
@@ -5914,6 +6336,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -5924,7 +6349,7 @@
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "description": "Send the workspace API key as Authorization: Bearer <key>. API keys need read for GET, write for POST, PUT and PATCH, and delete for DELETE. Conversation and contact exports need export. Key revocation accepts any scope."
+        "description": "Send the workspace API key as Authorization: Bearer <key>. A key holds a subset of the scopes read, write, delete and export: GET needs read, POST, PUT and PATCH need write, DELETE needs delete, and the conversation export needs export. A request outside the key scopes returns 403 with {\"error\": \"insufficient_scope\", \"required\": \"<scope>\"}."
       },
       "sessionBearerAuth": {
         "type": "http",
@@ -5939,6 +6364,33 @@
         "schema": {
           "type": "string",
           "format": "uuid"
+        }
+      },
+      "RetryAfter": {
+        "description": "Seconds to wait before sending the request again.",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "RateLimitLimit": {
+        "description": "Requests the exceeded limit allows per window. Sent when an API request limit was exceeded.",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "RateLimitRemaining": {
+        "description": "Requests left in the current window, always 0 on a 429. Sent when an API request limit was exceeded.",
+        "schema": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "RateLimitReset": {
+        "description": "Unix time in seconds when the current window ends. Sent when an API request limit was exceeded.",
+        "schema": {
+          "type": "integer"
         }
       }
     },
@@ -6157,7 +6609,7 @@
         "name": "source",
         "in": "query",
         "required": false,
-        "description": "Conversation source. Omitted source includes api_v2 and API Playground tests. all includes api_v2, widget, instagram and API Playground tests; native browser previews are excluded.",
+        "description": "Conversation source. Omit it to include api_v2 and API Playground tests. Use all to include API v2, widget, Instagram, API Playground, Center Stage and Help Page conversations.",
         "schema": {
           "type": "string",
           "enum": [
@@ -6165,6 +6617,8 @@
             "widget",
             "instagram",
             "playground",
+            "center_stage",
+            "help_page",
             "all"
           ]
         }
@@ -6173,7 +6627,7 @@
         "name": "source",
         "in": "query",
         "required": false,
-        "description": "Conversation source. all includes api_v2, widget, instagram and API Playground tests. playground selects API Playground tests; native browser previews are excluded.",
+        "description": "Conversation source. Use all to include API v2, widget, Instagram, API Playground, Center Stage and Help Page conversations. Use playground to select API Playground tests.",
         "schema": {
           "type": "string",
           "enum": [
@@ -6181,9 +6635,20 @@
             "widget",
             "instagram",
             "playground",
+            "center_stage",
+            "help_page",
             "all"
           ],
           "default": "api_v2"
+        }
+      },
+      "ConversationUnread": {
+        "name": "unread",
+        "in": "query",
+        "required": false,
+        "description": "Use true for unread conversations or false for read conversations. Omit it to include both. The parameter may appear once.",
+        "schema": {
+          "type": "boolean"
         }
       }
     },
@@ -6219,7 +6684,7 @@
         }
       },
       "Forbidden": {
-        "description": "The workspace plan does not permit the request, a quota was reached, or the calling API key lacks a required scope.",
+        "description": "The workspace plan does not permit the request, a quota was reached, or the API key lacks the scope this operation needs. A missing scope answers with the flat `InsufficientScope` body instead of the error envelope.",
         "headers": {
           "x-request-id": {
             "$ref": "#/components/headers/RequestId"
@@ -6271,7 +6736,7 @@
         }
       },
       "Conflict": {
-        "description": "The request conflicts with the current conversation or Instagram connection state.",
+        "description": "The request conflicts with the current resource state. For a concurrent source edit, read the latest source before retrying.",
         "headers": {
           "x-request-id": {
             "$ref": "#/components/headers/RequestId"
@@ -6301,10 +6766,22 @@
         }
       },
       "TooManyRequests": {
-        "description": "The Backstage request was rate-limited or the concurrency limit was reached.",
+        "description": "A rate limit was exceeded. Every authenticated request counts against a per-credential limit of 300 requests per minute; chat and retry share 30 per minute per credential; source edits and URL, text and Q&A source creation share 60 per minute per agent; retraining allows 6 per hour per agent. These limits are the same on every plan, and `error.details.bucket` names the one that was exceeded (`general`, `chat`, `sources` or `training`). File upload URLs and Backstage requests have their own limits and send `Retry-After` without the `X-RateLimit-*` headers.",
         "headers": {
           "x-request-id": {
             "$ref": "#/components/headers/RequestId"
+          },
+          "Retry-After": {
+            "$ref": "#/components/headers/RetryAfter"
+          },
+          "X-RateLimit-Limit": {
+            "$ref": "#/components/headers/RateLimitLimit"
+          },
+          "X-RateLimit-Remaining": {
+            "$ref": "#/components/headers/RateLimitRemaining"
+          },
+          "X-RateLimit-Reset": {
+            "$ref": "#/components/headers/RateLimitReset"
           }
         },
         "content": {
@@ -11842,6 +12319,269 @@
           "data"
         ]
       },
+      "DeviceCodeRequest": {
+        "type": "object",
+        "required": [
+          "client_name"
+        ],
+        "properties": {
+          "client_name": {
+            "type": "string",
+            "description": "A label for the device, usually its hostname. Trimmed and cut to 64 printable characters."
+          }
+        }
+      },
+      "DeviceCode": {
+        "type": "object",
+        "required": [
+          "device_code",
+          "user_code",
+          "verification_uri",
+          "verification_uri_complete",
+          "expires_in",
+          "interval"
+        ],
+        "properties": {
+          "device_code": {
+            "type": "string",
+            "description": "Opaque. Keep it secret."
+          },
+          "user_code": {
+            "type": "string",
+            "examples": [
+              "BCDF-GHJK"
+            ]
+          },
+          "verification_uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "verification_uri_complete": {
+            "type": "string",
+            "format": "uri"
+          },
+          "expires_in": {
+            "type": "integer",
+            "description": "Seconds."
+          },
+          "interval": {
+            "type": "integer",
+            "description": "Seconds to wait between polls."
+          }
+        }
+      },
+      "DeviceTokenRequest": {
+        "type": "object",
+        "required": [
+          "device_code"
+        ],
+        "properties": {
+          "device_code": {
+            "type": "string"
+          }
+        }
+      },
+      "DeviceToken": {
+        "type": "object",
+        "required": [
+          "api_key",
+          "key",
+          "account"
+        ],
+        "properties": {
+          "api_key": {
+            "type": "string"
+          },
+          "key": {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "source",
+              "scopes"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "cli"
+                ]
+              },
+              "scopes": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "read",
+                    "write",
+                    "delete",
+                    "export"
+                  ]
+                }
+              }
+            }
+          },
+          "account": {
+            "type": "object",
+            "required": [
+              "id",
+              "slug",
+              "name"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "slug": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "DeviceTokenError": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "enum": [
+              "authorization_pending",
+              "slow_down",
+              "expired_token",
+              "access_denied",
+              "invalid_grant"
+            ]
+          },
+          "interval": {
+            "type": "integer",
+            "description": "Present with `slow_down`: the new polling interval."
+          }
+        }
+      },
+      "CurrentCredential": {
+        "type": "object",
+        "required": [
+          "account",
+          "credential"
+        ],
+        "properties": {
+          "account": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": [
+                  "id",
+                  "slug",
+                  "name"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "slug": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "credential": {
+            "type": "object",
+            "required": [
+              "source",
+              "key_id",
+              "name",
+              "scopes"
+            ],
+            "properties": {
+              "source": {
+                "type": "string",
+                "enum": [
+                  "manual",
+                  "cli",
+                  "session"
+                ]
+              },
+              "key_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid"
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "scopes": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "read",
+                    "write",
+                    "delete",
+                    "export"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "InsufficientScope": {
+        "type": "object",
+        "required": [
+          "error",
+          "required"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "enum": [
+              "insufficient_scope"
+            ]
+          },
+          "required": {
+            "type": "string",
+            "enum": [
+              "read",
+              "write",
+              "delete",
+              "export"
+            ]
+          }
+        }
+      },
       "Error": {
         "type": "object",
         "additionalProperties": false,
@@ -12283,7 +13023,8 @@
           "updatedAt",
           "userId",
           "source",
-          "status"
+          "status",
+          "unread"
         ],
         "properties": {
           "id": {
@@ -12313,6 +13054,10 @@
           },
           "status": {
             "type": "string"
+          },
+          "unread": {
+            "type": "boolean",
+            "description": "Shared unread state from Chat Logs. API reads leave this state intact."
           }
         }
       },
@@ -12377,6 +13122,7 @@
           "userId",
           "source",
           "status",
+          "unread",
           "messages"
         ],
         "properties": {
@@ -12407,6 +13153,10 @@
           },
           "status": {
             "type": "string"
+          },
+          "unread": {
+            "type": "boolean",
+            "description": "Shared unread state from Chat Logs. API reads leave this state intact."
           },
           "messages": {
             "type": "array",
@@ -12657,6 +13407,119 @@
             "$ref": "#/components/schemas/JsonValue"
           }
         }
+      },
+      "SourceDetailResponse": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "title",
+              "sourceType",
+              "createdAt",
+              "lastCrawledAt",
+              "sourceMetadata",
+              "content"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "title": {
+                "type": "string"
+              },
+              "sourceType": {
+                "type": "string"
+              },
+              "createdAt": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "lastCrawledAt": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "sourceMetadata": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "content": {
+                "type": "string"
+              },
+              "questions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "answer": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "UpdateSourceRequest": {
+        "anyOf": [
+          {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": false,
+            "properties": {
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "content": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 262144,
+                "description": "Must contain non-whitespace text and encode to at most 262,144 UTF-8 bytes."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": false,
+            "properties": {
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "questions": {
+                "type": "array",
+                "maxItems": 10,
+                "contains": {
+                  "type": "string",
+                  "pattern": "\\S"
+                },
+                "minContains": 1,
+                "items": {
+                  "type": "string",
+                  "maxLength": 500
+                }
+              },
+              "answer": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 262144,
+                "description": "Must contain non-whitespace text and encode to at most 262,144 UTF-8 bytes."
+              }
+            }
+          }
+        ]
       },
       "SourceList": {
         "type": "object",
@@ -14569,231 +15432,6 @@
             }
           }
         ]
-      },
-      "ApiKeyScope": {
-        "type": "string",
-        "enum": [
-          "read",
-          "write",
-          "delete",
-          "export"
-        ]
-      },
-      "InsufficientScope": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "error",
-          "required"
-        ],
-        "properties": {
-          "error": {
-            "type": "string",
-            "const": "insufficient_scope"
-          },
-          "required": {
-            "$ref": "#/components/schemas/ApiKeyScope"
-          }
-        }
-      },
-      "CredentialAccount": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "id",
-          "slug",
-          "name"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "slug": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          }
-        }
-      },
-      "DeviceCodeRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "client_name"
-        ],
-        "properties": {
-          "client_name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 64
-          }
-        }
-      },
-      "DeviceCode": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "device_code",
-          "user_code",
-          "verification_uri",
-          "verification_uri_complete",
-          "expires_in",
-          "interval"
-        ],
-        "properties": {
-          "device_code": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_-]{43}$"
-          },
-          "user_code": {
-            "type": "string",
-            "pattern": "^[BCDFGHJKLMNPQRSTVWXZ]{4}-[BCDFGHJKLMNPQRSTVWXZ]{4}$"
-          },
-          "verification_uri": {
-            "type": "string",
-            "format": "uri"
-          },
-          "verification_uri_complete": {
-            "type": "string",
-            "format": "uri"
-          },
-          "expires_in": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "interval": {
-            "type": "integer",
-            "minimum": 1
-          }
-        }
-      },
-      "DeviceTokenRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "device_code"
-        ],
-        "properties": {
-          "device_code": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_-]{43}$"
-          }
-        }
-      },
-      "DeviceToken": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "api_key",
-          "key",
-          "account"
-        ],
-        "properties": {
-          "api_key": {
-            "type": "string"
-          },
-          "key": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "id",
-              "name",
-              "source",
-              "scopes"
-            ],
-            "properties": {
-              "id": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "name": {
-                "type": "string"
-              },
-              "source": {
-                "type": "string",
-                "const": "cli"
-              },
-              "scopes": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/ApiKeyScope"
-                }
-              }
-            }
-          },
-          "account": {
-            "$ref": "#/components/schemas/CredentialAccount"
-          }
-        }
-      },
-      "CurrentCredential": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "account",
-          "credential"
-        ],
-        "properties": {
-          "account": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/CredentialAccount"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "credential": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "source",
-              "key_id",
-              "name",
-              "scopes"
-            ],
-            "properties": {
-              "source": {
-                "type": "string",
-                "enum": [
-                  "manual",
-                  "cli",
-                  "session"
-                ]
-              },
-              "key_id": {
-                "anyOf": [
-                  {
-                    "type": "string",
-                    "format": "uuid"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "name": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "scopes": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/ApiKeyScope"
-                }
-              }
-            }
-          }
-        }
       }
     }
   }
