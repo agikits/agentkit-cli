@@ -61,7 +61,9 @@ try {
   assert.equal(metadata.packages[0].transport.type, 'stdio');
   assert.equal(metadata.remotes, undefined);
   assert.equal(metadata.packages[0].environmentVariables[0].isSecret, true);
-  console.log('Export guards passed for public renamed metadata, nested credentials, file/directory symlinks, identifiers, dependency URLs and a sanitized candidate.');
+  const provenance = await readFile(path.join(candidate, 'contracts/provenance.json'), 'utf8');
+  assert(!/sideplan|agikits\/agentkit\/pull|apps\/chatbots/i.test(provenance), 'Exported provenance contains internal repository context');
+  console.log('Export guards passed for public renamed metadata, nested credentials, file/directory symlinks, identifiers, dependency URLs, sanitized provenance and a sanitized candidate.');
 } finally {
   await rm(temp, { recursive: true, force: true });
 }

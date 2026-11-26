@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { VERSION } from "../sdk/version.js";
+import { printJsonErrorLine } from "../shared/terminal.js";
 import { runStdio, type StdioOptions } from "./run-stdio.js";
 
 const program = new Command().name("agentkit-mcp").version(VERSION)
@@ -16,6 +17,6 @@ try {
   await runStdio(options);
 } catch (error) {
   // Startup failures contain no API response bodies or credential values.
-  console.error(JSON.stringify({ error: { code: "MCP_STARTUP_FAILED", message: error instanceof Error ? error.message : "Failed to start MCP." } }));
+  printJsonErrorLine({ error: { code: "MCP_STARTUP_FAILED", message: error instanceof Error ? error.message : "Failed to start MCP." } });
   process.exitCode = 1;
 }

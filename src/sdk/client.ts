@@ -800,6 +800,14 @@ function igPath(agentId: string): string {
 }
 
 function enc(segment: string): string {
+  // encodeURIComponent leaves "." and ".." alone, and fetch collapses dot
+  // segments before sending. Reject them so a caller-supplied ID cannot escape
+  // its route (for example, dropping /users/{userId}/ from a conversation read).
+  // The typeof check also blocks untyped callers passing an array, which
+  // encodeURIComponent would coerce to its string value.
+  if (typeof segment !== "string" || !segment || segment === "." || segment === "..") {
+    throw new Error("Path parameter must be a non-empty identifier, not '.' or '..'.");
+  }
   return encodeURIComponent(segment);
 }
 
