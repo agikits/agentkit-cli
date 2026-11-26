@@ -48,10 +48,11 @@ import {
 } from "../shared/instagram.js";
 import {
   resolveConfig,
-  redact,
+  redactValue,
   rememberKey,
 } from "../shared/config.js";
 import { listProjects, loadProject, addProject, removeProject, importProjects } from "../shared/project.js";
+import { printLine, printErrorLine, printJsonLine, printJsonErrorLine, terminalText } from "../shared/terminal.js";
 
 type GlobalOpts = { url?: string; key?: string; json?: boolean; timeout?: number; plain?: boolean; quiet?: boolean; input?: boolean };
 const cancellation = new AbortController();
@@ -163,12 +164,12 @@ function cell(value: unknown): string {
 }
 
 function out(value: unknown): void {
-  console.log(JSON.stringify(value, null, globalOpts().plain ? undefined : 2));
+  printJsonLine(redactValue(value), globalOpts().plain ? undefined : 2);
 }
 
 function printCursorFooter(pagination: Pagination): void {
   if (pagination.hasMore && !globalOpts().quiet) {
-    console.error(`\n(more: next cursor ${pagination.cursor})`);
+    printErrorLine(`\n(more: next cursor ${pagination.cursor})`);
   }
 }
 
@@ -284,7 +285,7 @@ program
         : await client.listConversations(agentId, listOpts);
       if (opts.json) return out(list);
       for (const c of list.data) {
-        console.log([c.id, c.status, c.userId ?? "-", c.title].map(cell).join("\t"));
+        printLine([c.id, c.status, c.userId ?? "-", c.title].map(cell).join("\t"));
       }
       printCursorFooter(list.pagination);
     },
@@ -306,10 +307,10 @@ program
         source: opts.source,
       });
       if (opts.json) return out(conv);
-      console.log(`# ${cell(conv.title)} (${conv.id})`);
+      printLine(`# ${cell(conv.title)} (${conv.id})`);
       for (const m of conv.messages) {
         const text = m.parts.map((p) => p.text).join("");
-        console.log(`\n[${m.role} ${m.id}] ${text}`);
+        printLine(`\n[${m.role} ${m.id}] ${text}`);
       }
     },
   );
@@ -331,9 +332,9 @@ program
     for (const thread of list.data) {
       const from = thread.customerName ? `${thread.customerName} <${thread.customerEmail}>` : thread.customerEmail;
       const reason = thread.discarded ? emailReviewReason(thread.discardReason, thread.discardSource) : "";
-      console.log([from, thread.subject, thread.status, thread.lastActivityAt, thread.id, reason].map(cell).join("\t"));
+      printLine([from, thread.subject, thread.status, thread.lastActivityAt, thread.id, reason].map(cell).join("\t"));
     }
-    if (list.pagination.hasMore && !globalOpts().quiet) console.error(`\n(more: next cursor ${list.pagination.nextCursor})`);
+    if (list.pagination.hasMore && !globalOpts().quiet) printErrorLine(`\n(more: next cursor ${list.pagination.nextCursor})`);
   });
 
 program
@@ -454,7 +455,7 @@ program
     const list = await client.listAgents({ limit: opts.limit, cursor: opts.cursor });
     if (opts.json) return out(list);
     for (const a of list.data) {
-      console.log([a.id, aiValue(a.settings, "model") ?? "-", a.name].map(cell).join("\t"));
+      printLine([a.id, aiValue(a.settings, "model") ?? "-", a.name].map(cell).join("\t"));
     }
     printCursorFooter(list.pagination);
   });
@@ -472,8 +473,8 @@ program
       ...(opts.website ? { url: opts.website } : {}),
     });
     if (opts.json) return out(agent);
-    console.log(`Created agent ${agent.id} (${agent.name})`);
-    if (!globalOpts().quiet) console.error(`Register an alias: agentkit projects --add <alias> ${agent.id}`);
+    printLine(`Created agent ${agent.id} (${agent.name})`);
+    if (!globalOpts().quiet) printErrorLine(`Register an alias: agentkit projects --add <alias> ${agent.id}`);
   });
 
 program
@@ -489,7 +490,7 @@ program
     const client = await apiClient();
     await client.deleteAgent(agentId);
     if (globalOpts().json) out({ deleted: true, agentId });
-    else console.log(`Deleted agent ${agentId}`);
+    else printLine(`Deleted agent ${agentId}`);
   });
 
 // ---- management: per-project config ----
@@ -513,10 +514,10 @@ program
     const { agentId, client } = await projectClient(project);
     const agent = await client.getAgent(agentId);
     if (opts.json) return out(agent);
-    console.log(`${globalOpts().plain ? "" : "# "}${cell(agent.name)} (${agent.id})`);
-    console.log(`url:   ${agent.url ?? "-"}`);
-    console.log(`model: ${aiValue(agent.settings, "model") ?? "-"}`);
-    console.log(`preset: ${aiValue(agent.settings, "instructionsPreset") ?? "-"}`);
+    printLine(`${globalOpts().plain ? "" : "# "}${cell(agent.name)} (${agent.id})`);
+    printLine(`url:   ${agent.url ?? "-"}`);
+    printLine(`model: ${aiValue(agent.settings, "model") ?? "-"}`);
+    printLine(`preset: ${aiValue(agent.settings, "instructionsPreset") ?? "-"}`);
   });
 
 program.command("ai-settings <project>").description("Show the agent's AI settings")
@@ -534,7 +535,7 @@ program
     const { agentId, client } = await projectClient(project);
     const ai = await client.updateAiSettings(agentId, { model: model as AiUpdate["model"] });
     if (opts.json) return out(ai);
-    console.log(`model set to ${ai.model}`);
+    printLine(`model set to ${ai.model}`);
   });
 
 program
@@ -563,7 +564,7 @@ program
         instructionsPreset: (opts.preset ?? "custom") as AiUpdate["instructionsPreset"],
       });
       if (opts.json) return out(ai);
-      console.log(
+      printLine(
         `instructions updated (${text.length} chars, preset ${ai.instructionsPreset})`,
       );
     },
@@ -736,7 +737,7 @@ program
       });
       if (opts.json) return out(list);
       for (const s of list.data) {
-        console.log([s.id, s.sourceType, s.title].map(cell).join("\t"));
+        printLine([s.id, s.sourceType, s.title].map(cell).join("\t"));
       }
       printCursorFooter(list.pagination);
     },
@@ -750,13 +751,13 @@ program.command("get-source <project> <documentId>")
     const doc = await client.getSource(agentId, documentId);
     if (opts.json) return out(doc);
     const lines = (value: string) => value.split(/\r?\n/).map(cell).join("\n");
-    console.log(`${cell(doc.title)} (${cell(doc.sourceType)})`);
+    printLine(`${cell(doc.title)} (${cell(doc.sourceType)})`);
     if (doc.sourceType === "qna_entry" && doc.questions && doc.answer !== undefined) {
-      console.log("Questions:");
-      for (const question of doc.questions) console.log(cell(question));
-      console.log("Answer:");
-      console.log(lines(doc.answer));
-    } else console.log(lines(doc.content));
+      printLine("Questions:");
+      for (const question of doc.questions) printLine(cell(question));
+      printLine("Answer:");
+      printLine(lines(doc.answer));
+    } else printLine(lines(doc.content));
   });
 
 program.command("update-source <project> <documentId>")
@@ -784,7 +785,7 @@ program.command("update-source <project> <documentId>")
     const { agentId, client } = await projectClient(project);
     const doc = await client.updateSource(agentId, documentId, patch);
     if (opts.json) return out(doc);
-    console.log(`Updated ${cell(doc.title)} (${cell(doc.id)})`);
+    printLine(`Updated ${cell(doc.title)} (${cell(doc.id)})`);
   });
 
 program
@@ -810,7 +811,7 @@ program
         content,
       });
       if (opts.json) return out(doc);
-      console.log(`added text source ${doc.documentId}`);
+      printLine(`added text source ${doc.documentId}`);
     },
   );
 
@@ -833,7 +834,7 @@ program
         answer: opts.answer,
       });
       if (opts.json) return out(doc);
-      console.log(`added Q&A source ${doc.documentId}`);
+      printLine(`added Q&A source ${doc.documentId}`);
     },
   );
 
@@ -845,7 +846,7 @@ program
     const { agentId, client } = await projectClient(project);
     const doc = await client.addUrlSource(agentId, { url });
     if (opts.json) return out(doc);
-    console.log(`URL source job ${doc.jobId} (retrain: ${doc.isRetrain})`);
+    printLine(`URL source job ${doc.jobId} (retrain: ${doc.isRetrain})`);
   });
 
 program.command("file-upload-urls <project>").description("Create signed upload URLs for knowledge files")
@@ -879,7 +880,7 @@ program
       const { agentId, client } = await projectClient(project);
       await client.deleteSource(agentId, documentId);
       if (globalOpts().json) out({ deleted: true, documentId });
-      else console.log(`deleted source ${documentId}`);
+      else printLine(`deleted source ${documentId}`);
     },
   );
 
@@ -897,7 +898,7 @@ program
         const last = s.lastTrainedAt
           ? new Date(s.lastTrainedAt * 1000).toISOString()
           : "never";
-        console.log(
+        printLine(
           `${s.status} · ${s.documentCount} sources · last trained ${last}${
             s.activeJob ? ` · active job ${s.activeJob.id}` : ""
           }`,
@@ -906,7 +907,7 @@ program
       }
       const job = await client.train(agentId);
       if (opts.json) return out(job);
-      console.log(job.jobId === null ? job.message : `retraining ${job.count} web source(s) (job ${job.jobId})`);
+      printLine(job.jobId === null ? job.message : `retraining ${job.count} web source(s) (job ${job.jobId})`);
     },
   );
 
@@ -930,7 +931,7 @@ program
       });
       if (opts.json) return out(list);
       for (const c of list.data) {
-        console.log(
+        printLine(
           [c.externalId, c.name ?? "-", c.email ?? "-", c.phone ?? "-"].map(cell).join("\t"),
         );
       }
@@ -968,7 +969,7 @@ program
         ...(opts.attributesFile ? { customAttributes: await jsonInput<Record<string, unknown>>(opts.attributesFile) } : {}),
       });
       if (opts.json) return out(contact);
-      console.log(`upserted contact ${contact.externalId}`);
+      printLine(`upserted contact ${contact.externalId}`);
     },
   );
 
@@ -988,7 +989,7 @@ program.command("leads <project>").description("List captured leads")
     const { agentId, client } = await projectClient(project);
     const list = await client.listLeads(agentId, opts);
     if (opts.json) return out(list);
-    for (const lead of list.data) console.log([lead.id, lead.name ?? "-", lead.email ?? "-", lead.phone ?? "-"].map(cell).join("\t"));
+    for (const lead of list.data) printLine([lead.id, lead.name ?? "-", lead.email ?? "-", lead.phone ?? "-"].map(cell).join("\t"));
     printCursorFooter(list.pagination);
   });
 
@@ -1005,26 +1006,26 @@ program
     const ig = await client.getInstagram(agentId);
     if (opts.json) return out(ig);
     if (ig.connected === false) {
-      console.log("not connected (connect Instagram in the dashboard)");
+      printLine("not connected (connect Instagram in the dashboard)");
       return;
     }
     const handle = ig.instagram_username ? `@${ig.instagram_username}` : "-";
-    console.log(
+    printLine(
       `${handle} (${ig.instagram_user_id ?? "-"}) · ${ig.status} · ${ig.login_kind}`,
     );
-    if (ig.scopes?.length) console.log(`scopes: ${ig.scopes.join(", ")}`);
-    if (ig.last_error_message) console.log(`last error: ${ig.last_error_message}`);
+    if (ig.scopes?.length) printLine(`scopes: ${ig.scopes.join(", ")}`);
+    if (ig.last_error_message) printLine(`last error: ${ig.last_error_message}`);
     if (ig.last_verified_at !== undefined) {
-      console.log(`last verified: ${ig.last_verified_at ?? "never"}`);
+      printLine(`last verified: ${ig.last_verified_at ?? "never"}`);
     }
-    console.log("");
+    printLine("");
     for (const a of ig.automations) {
-      console.log(`${a.key.padEnd(16)}${a.status}`);
+      printLine(`${a.key.padEnd(16)}${a.status}`);
     }
     const cs = ig.conversation_starters;
     const live = cs.live_prompts?.length ?? 0;
     const draft = cs.draft_prompts?.length ?? 0;
-    console.log(
+    printLine(
       `${"starters".padEnd(16)}${cs.status} · ${live} live / ${draft} draft` +
         (cs.synced_at ? ` · synced ${cs.synced_at}` : "") +
         (cs.last_sync_error ? ` · sync error: ${cs.last_sync_error}` : ""),
@@ -1180,7 +1181,7 @@ program
       if (opts.json) return out(menu);
       const live = menu.live_items?.length ?? 0;
       const draft = menu.draft_items?.length ?? 0;
-      console.log(
+      printLine(
         `${menu.status} · ${live} live / ${draft} draft` +
           (menu.synced_at ? ` · synced ${menu.synced_at}` : "") +
           (menu.last_sync_error ? ` · sync error: ${menu.last_sync_error}` : ""),
@@ -1188,7 +1189,7 @@ program
       for (const item of menu.draft_items ?? []) {
         const action =
           item.action.kind === "web_url" ? `→ ${item.action.url}` : `↩ ${item.action.reply}`;
-        console.log(`  ${cell(item.title).padEnd(30)} ${action}`);
+        printLine(`  ${cell(item.title).padEnd(30)} ${action}`);
       }
     },
   );
@@ -1211,8 +1212,8 @@ program
     ]
       .filter(Boolean)
       .join(" · ");
-    console.log(`${result.outcome}${detail ? ` (${detail})` : ""} · ${result.loginKind}`);
-    console.log(`last verified: ${result.lastVerifiedAt ?? "never"}`);
+    printLine(`${result.outcome}${detail ? ` (${detail})` : ""} · ${result.loginKind}`);
+    printLine(`last verified: ${result.lastVerifiedAt ?? "never"}`);
   });
 
 program.command("channels <project> [channel]").description("List management channels or show one channel")
@@ -1314,7 +1315,7 @@ program.command("backstage-decide <project> <changeId> <decision>").description(
   .action(async (project: string, changeId: string, decision: string, opts: { yes?: boolean }) => { if (decision !== "approve" && decision !== "reject") throw new Error("Decision must be approve or reject."); if (decision === "approve" && !opts.yes) throw new Error("Refusing to approve the change without --yes."); const { agentId, client } = await managementProjectClient(project); const result = await client.decideBackstageChange(agentId, changeId, decision); out(result); if (result.status !== (decision === "approve" ? "executed" : "rejected")) throw new AgentkitError({ code: "BACKSTAGE_DECISION_NOT_APPLIED", message: `Change is ${result.status}; the requested decision did not complete. Inspect its state before retrying.`, status: 200, details: result }); });
 program.command("backstage-chat <project> <message>").description("Send a Backstage message and print structured stream events")
   .requiredOption("--client-message-id <id>", "Stable id for this client message").option("--session-id <id>", "Continue an existing session").option("--json", "Print JSON events")
-  .action(async (project: string, message: string, opts: { clientMessageId: string; sessionId?: string }) => { const { agentId, client } = await managementProjectClient(project); for await (const event of client.chatBackstage(agentId, { message, clientMessageId: opts.clientMessageId, ...(opts.sessionId ? { sessionId: opts.sessionId } : {}) })) console.log(JSON.stringify(event)); });
+  .action(async (project: string, message: string, opts: { clientMessageId: string; sessionId?: string }) => { const { agentId, client } = await managementProjectClient(project); for await (const event of client.chatBackstage(agentId, { message, clientMessageId: opts.clientMessageId, ...(opts.sessionId ? { sessionId: opts.sessionId } : {}) })) printJsonLine(event); });
 
 program.command("tool-result <project> <conversationId> <toolCallId>")
   .description("Submit caller-provided JSON output and stream the continuation")
@@ -1355,9 +1356,9 @@ async function printStream(stream: AsyncIterable<StreamEvent>, json = false): Pr
   const events: StreamEvent[] = [];
   for await (const event of stream) {
     if (json) { events.push(event); continue; }
-    if (event.type === "text-delta" && typeof event.delta === "string") process.stdout.write(event.delta);
-    else if (event.type === "tool-call") console.error(JSON.stringify({ pendingToolCall: event }));
-    else if (event.type === "message-metadata") console.error(JSON.stringify(event));
+    if (event.type === "text-delta" && typeof event.delta === "string") process.stdout.write(terminalText(event.delta));
+    else if (event.type === "tool-call") printJsonErrorLine({ pendingToolCall: event });
+    else if (event.type === "message-metadata") printJsonErrorLine(event);
   }
   if (json) out(events);
   else process.stdout.write("\n");
@@ -1502,8 +1503,8 @@ program.parseAsync().catch((error: unknown) => {
   if (error instanceof CommanderError && (error.exitCode === 0 || error.code === "commander.help")) return;
   const code = error instanceof AgentkitError ? error.code : cancellation.signal.aborted ? "REQUEST_CANCELLED" : "CLI_ERROR";
   const message = error instanceof Error ? cell(error.message) : "Command failed.";
-  console.error(redact(JSON.stringify({ error: { code, message,
+  printJsonErrorLine(redactValue({ error: { code, message,
     ...(error instanceof AgentkitError ? { status: error.status, details: error.details, requestId: error.requestId } : {}),
-  } })));
+  } }));
   process.exitCode = cancellation.signal.aborted ? 130 : 1;
 });

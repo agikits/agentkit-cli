@@ -89,6 +89,7 @@ try {
     assert(!file.path.split('/').some(segment => /^\.env/i.test(segment) || ['.npmrc', 'auth.json', 'config.json', 'projects.json'].includes(segment)), `Private packed path: ${file.path}`);
     assert(!file.path.endsWith('.map'), 'Source maps must not ship without sources');
   }
+  assert(!packed.files.some(file => file.path === 'contracts/provenance.json' || file.path === 'contracts/deployed-openapi.json'), 'Internal contract provenance must not be packed');
   for (const required of ['LICENSE', 'SECURITY.md', 'dist/sdk/index.js', 'dist/mcp/index.js', 'dist/mcp/stdio.js']) assert(packed.files.some(file => file.path === required), `Missing packed file: ${required}`);
   const tarball = path.join(temp, packed.filename);
   const local = path.join(temp, 'local'); await mkdir(local);

@@ -26,6 +26,19 @@ try {
   await cp('ci/private-checks.yml', path.join(target, '.github/workflows/checks.yml'));
   await cp('ci/release.yml', path.join(target, '.github/workflows/release.yml'));
   await writeFile(path.join(target, '.gitignore'), 'node_modules/\ndist/\n*.tgz\n.env*\n.npmrc\n');
+  const provenancePath = path.join(target, 'contracts/provenance.json');
+  const internalKeys = new Set(['source', 'sourceModules', 'productBranch', 'productPullRequest']);
+  const sanitize = value => {
+    if (Array.isArray(value)) return value.map(sanitize);
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(Object.entries(value)
+        .filter(([key]) => !internalKeys.has(key))
+        .map(([key, entry]) => [key, sanitize(entry)]));
+    }
+    return value;
+  };
+  const provenance = sanitize(JSON.parse(await readFile(provenancePath, 'utf8')));
+  await writeFile(provenancePath, JSON.stringify(provenance, null, 2) + '\n');
   await auditExport(target, { forbiddenValues: internalIds });
 } catch (error) {
   await rm(target, { recursive: true, force: true });

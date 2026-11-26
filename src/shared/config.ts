@@ -2,6 +2,7 @@ import path from "node:path";
 import { DEFAULT_BASE_URL } from "../sdk/client.js";
 import { validateBaseUrl } from "../sdk/url.js";
 import { configDir, isRecord, readJsonFile, writeJsonFile } from "./storage.js";
+import { maskSecretsDeep, maskText } from "./secrets.js";
 
 export type Config = { url?: string; key?: string; keyUrl?: string; sessionToken?: string; sessionUrl?: string; agent?: string };
 type CredentialLocation = "flag" | "env" | "config";
@@ -18,8 +19,10 @@ export function rememberKey(key: string): string {
   return key;
 }
 export function redact(text: string): string {
-  for (const key of secrets) text = text.split(key).join("[REDACTED]");
-  return text;
+  return maskText(text, [...secrets]);
+}
+export function redactValue(value: unknown): unknown {
+  return maskSecretsDeep(value, [...secrets]);
 }
 export function configPath(): string { return path.join(configDir(), "config.json"); }
 

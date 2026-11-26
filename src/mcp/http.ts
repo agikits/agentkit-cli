@@ -5,6 +5,7 @@ import { createAgentkitMcpServer, DEFAULT_SCOPE_NAMES, MCP_TOOL_ACCESS, type Mcp
 export type AuthorizedConnection = Omit<McpOptions, "scopeNames"> & {
   subject: string;
   workspaceId: string;
+  /** Unix epoch seconds. */
   expiresAt: number;
   scopes: readonly string[];
 };
@@ -16,7 +17,7 @@ export type HttpOptions = {
   authorizationServers: readonly string[];
   /** Must verify signature/introspection, issuer, audience, expiry, scope and revocation. */
   authorize: (token: string, request: Request) => Promise<AuthorizedConnection | null>;
-  /** Optional deployment admission limit. Called before dispatch. */
+  /** Optional deployment admission limit. Called after authorization, before tool dispatch. */
   admit?: (connection: AuthorizedConnection, request: Request) => Promise<boolean>;
   /** Scope names the authorization server issues. Defaults to agentkit:read and agentkit:write. */
   scopes?: McpScopeNames;
@@ -111,6 +112,17 @@ export function createAgentkitHttpHandler(options: HttpOptions): { fetch(request
   return { async fetch(request) {
     const url = new URL(request.url);
     if (url.origin !== resource.origin) return new Response("Invalid host", { status: 421, headers: noStore });
+    const host = request.headers.get("host");
+    if (host !== null) {
+      if (!host || /[@/?#\\\s]/.test(host)) return new Response("Invalid host", { status: 421, headers: noStore });
+      let parsedHost: URL;
+      try { parsedHost = new URL(`${resource.protocol}//${host}`); }
+      catch { return new Response("Invalid host", { status: 421, headers: noStore }); }
+      if (parsedHost.host !== resource.host || parsedHost.username || parsedHost.password ||
+        parsedHost.pathname !== "/" || parsedHost.search || parsedHost.hash) {
+        return new Response("Invalid host", { status: 421, headers: noStore });
+      }
+    }
     const cors = corsFor(request);
     if (!cors) return new Response("Invalid origin", { status: 403, headers: noStore });
     const headers = { ...noStore, ...cors };
@@ -140,15 +152,21 @@ export function createAgentkitHttpHandler(options: HttpOptions): { fetch(request
     const authorization = request.headers.get("authorization");
     if (!authorization || !/^Bearer /i.test(authorization)) return challenge(401, defaultScope);
     if (authorization.length > 8192 || !/^Bearer [A-Za-z0-9._~+\/-]+=*$/i.test(authorization)) return challenge(401, defaultScope, "invalid_token");
+    const token = authorization.slice(7);
     let connection: AuthorizedConnection | null;
-    try { connection = await options.authorize(authorization.slice(7), request); }
+    try { connection = await options.authorize(token, request); }
     catch { return Response.json({ error: "authorization_unavailable" }, { status: 503, headers }); }
     if (!connection || !connection.subject || !connection.workspaceId || !Number.isFinite(connection.expiresAt) || connection.expiresAt <= Date.now() / 1000) {
       return challenge(401, defaultScope, "invalid_token");
     }
     // A valid token without the base scope is a scope problem, not an authentication one.
     if (!connection.scopes.includes(scopeNames.read)) return challenge(403, scopeNames.read);
-    if (options.admit && !await options.admit(connection, request)) return Response.json({ error: "rate_limited" }, { status: 429, headers });
+    if (options.admit) {
+      let admitted: boolean;
+      try { admitted = await options.admit(connection, request); }
+      catch { return Response.json({ error: "admission_unavailable" }, { status: 503, headers }); }
+      if (!admitted) return Response.json({ error: "rate_limited" }, { status: 429, headers });
+    }
 
     // The body is read only after authentication and admission. JSON-RPC batches are refused
     // (MCP 2025-06-18 dropped batching, and admission counts one call per HTTP request).
@@ -167,7 +185,11 @@ export function createAgentkitHttpHandler(options: HttpOptions): { fetch(request
     const forwarded = new Request(request.url, { method: "POST", headers: request.headers, body, signal: request.signal });
 
     const granted = connection;
-    const handler = createMcpHandler(() => createAgentkitMcpServer({ ...granted, scopeNames,
+    const sensitiveValues = [
+      ...(granted.sensitiveValues ?? []),
+      ...(token.length >= 16 ? [token] : []),
+    ];
+    const handler = createMcpHandler(() => createAgentkitMcpServer({ ...granted, scopeNames, sensitiveValues,
       createClient: signal => granted.createClient(AbortSignal.any([request.signal, signal])),
     }), { responseMode: "json", maxRequestBodySize: MAX_BODY_BYTES, maxSubscriptions: 0 });
     try {

@@ -64,6 +64,18 @@ describe("AgentkitClient", () => {
       expect(new Headers(call.init.headers).has("x-agentkit-auth")).toBe(false);
     }
   });
+  it("rejects empty and dot-segment path parameters before normalizing a route", async () => {
+    const { fetch, calls } = fakeFetch(() => jsonResponse({ data: [] }));
+    const client = new AgentkitClient({ key: "synthetic", fetch });
+    for (const value of ["", ".", ".."]) {
+      expect(() => client.listUserConversations("agent", value)).toThrow("Path parameter");
+      expect(() => client.deleteSource("agent", value)).toThrow("Path parameter");
+      expect(() => client.deleteAgentSecret("agent", value)).toThrow("Path parameter");
+      await expect(client.getConversation("agent", value)).rejects.toThrow("Path parameter");
+    }
+    expect(() => client.listUserConversations("agent", [".."] as unknown as string)).toThrow("Path parameter");
+    expect(calls).toHaveLength(0);
+  });
   it("sends a non-streaming chat with auth + correct body and unwraps data", async () => {
     const { fetch, calls } = fakeFetch(() =>
       jsonResponse({

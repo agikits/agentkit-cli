@@ -642,6 +642,21 @@ describe("installed-style executable", () => {
     expect(result.stdout).not.toContain("doNotPrint");
     expect(result.stdout).not.toContain(".hidden");
   });
+  it("strips terminal control sequences from untrusted email content", async () => {
+    respond = res => res.end(JSON.stringify({ data: {
+      ...emailThread,
+      subject: "Case \u001b]52;c;ZXZpbA==\u0007",
+      messages: [
+        { ...emailThread.messages[0], subject: "Case \u001b[2J\u001b[31m", text: "Line one\nLine two\rRewritten\u001b[0m" },
+        { ...emailThread.messages[0], id: "encoded-message", text: null, html: "<p>&#27;]0;spoof&#7;Encoded body&#8238;</p>" },
+      ],
+    } }));
+    const result = await bin(["email", AGENT, emailThread.id], "", { AGENTKIT_API_KEY: "test-key" });
+    expect(result.code, result.stderr).toBe(0);
+    expect(result.stdout).not.toMatch(/[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u202A-\u202E\u2066-\u2069]/);
+    expect(result.stdout).toContain("Line one\nLine twoRewritten");
+    expect(result.stdout).toContain("Encoded body");
+  });
   it("distinguishes delivered email from outbound messages with unknown delivery", async () => {
     respond = res => res.end(JSON.stringify({ data: {
       ...emailThread, messages: [
@@ -751,6 +766,14 @@ describe("installed-style executable", () => {
     respond = res => { res.statusCode = 401; res.end(JSON.stringify({ error: { code: "AUTH_INVALID_API_KEY", message: "bad secret-token" } })); };
     const result = await bin(["--key", "secret-token", "info", AGENT]);
     expect(result.stderr).not.toContain("secret-token"); expect(result.stderr).toContain("[REDACTED]");
+  });
+  it("redacts a key containing JSON escape characters without breaking error JSON", async () => {
+    const key = 'secret"quote\\slash';
+    respond = res => { res.statusCode = 401; res.end(JSON.stringify({ error: { code: "AUTH_INVALID_API_KEY", message: `bad ${key}`, details: { echo: key } } })); };
+    const result = await bin(["--key", key, "info", AGENT]);
+    expect(result.stderr).not.toContain("secret");
+    expect(result.stderr).toContain("[REDACTED]");
+    expect(JSON.parse(result.stderr).error.details.echo).toBe("[REDACTED]");
   });
   it("routes the new grouped read and write commands", async () => {
     const commands = [
