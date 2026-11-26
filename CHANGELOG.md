@@ -1,6 +1,14 @@
 # Changelog
 
-## 0.5.1 (unreleased)
+## 0.5.2
+
+- Validate SDK path parameters before constructing requests.
+- Make CLI output and credential redaction safe for terminal display.
+- Process HTML email in linear time.
+- Harden MCP host validation, admission failures and credential redaction.
+- Exclude internal contract provenance from npm artifacts.
+
+## 0.5.1
 
 - CLI help, the capabilities catalogue and installable skills now list released commands. Existing command spellings still work for eligible callers.
 

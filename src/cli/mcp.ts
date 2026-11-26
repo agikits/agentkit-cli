@@ -6,7 +6,8 @@ import { isDeepStrictEqual, stripVTControlCharacters } from "node:util";
 import type { Command } from "commander";
 import spawn from "cross-spawn";
 import { jwtExpired } from "../sdk/client.js";
-import { redact, resolveConfig } from "../shared/config.js";
+import { redact, redactValue, resolveConfig } from "../shared/config.js";
+import { printLine, printJsonLine } from "../shared/terminal.js";
 import { isRecord } from "../shared/storage.js";
 import { AGENT_ID } from "../shared/project.js";
 import { clients, executable, type Client, type ClientConfig, type Target } from "./mcp-clients.js";
@@ -52,7 +53,7 @@ function clean(value: string) {
   return redact(stripVTControlCharacters(value)).replace(/[\u0000-\u001f\u007f-\u009f]/g, " ");
 }
 function printJson(value: unknown, plain?: boolean) {
-  console.log(JSON.stringify(value, (_key, val: unknown) => typeof val === "string" ? clean(val) : val, plain ? undefined : 2));
+  printJsonLine(redactValue(value), plain ? undefined : 2);
 }
 function displayCommand(argv: string[]) {
   const win = process.platform === "win32";
@@ -127,7 +128,7 @@ async function change(operation: "add" | "remove", id: string | undefined, opts:
   if (client.id === "claude-desktop" && server && "url" in server) {
     const instructions = `Open Claude Desktop Settings → Connectors, add a custom connector named ${opts.name} with URL ${server.url}, then sign in.`;
     if (opts.json) printJson({ action: "manual", client: client.id, name: opts.name, scope: target.scope, dryRun: !!opts.dryRun, server, instructions }, opts.plain);
-    else console.log(clean(instructions));
+    else printLine(clean(instructions));
     return;
   }
   const original = await contents(target.file);
@@ -148,12 +149,12 @@ async function change(operation: "add" | "remove", id: string | undefined, opts:
   const notice = server && "command" in server && server.command === "npx" ? "agentkit-mcp was not found on PATH. Using the npx fallback." : undefined;
   if (opts.json) printJson({ action, dryRun: !!opts.dryRun, client: client.id, scope: target.scope, name: opts.name, file: target.file, server, removeFirst, command, notice }, opts.plain);
   else {
-    console.log(clean(`${opts.dryRun ? "Dry run: " : ""}${action} ${opts.name} (${client.id}, ${target.scope}) in ${target.file}`));
-    if (removeFirst) console.log(clean(`Run: ${removeFirst}`));
-    if (manual && command) console.log(clean(`Run: ${command}`));
-    else if (server && "command" in server) console.log(clean(displayCommand([server.command, ...server.args])));
-    else if (server) console.log(clean("url" in server ? server.url : server.serverUrl));
-    if (notice && !opts.quiet) console.log(notice);
+    printLine(clean(`${opts.dryRun ? "Dry run: " : ""}${action} ${opts.name} (${client.id}, ${target.scope}) in ${target.file}`));
+    if (removeFirst) printLine(clean(`Run: ${removeFirst}`));
+    if (manual && command) printLine(clean(`Run: ${command}`));
+    else if (server && "command" in server) printLine(clean(displayCommand([server.command, ...server.args])));
+    else if (server) printLine(clean("url" in server ? server.url : server.serverUrl));
+    if (notice && !opts.quiet) printLine(notice);
   }
 }
 
@@ -206,13 +207,13 @@ async function status(opts: Options) {
   }
   if (opts.json) printJson({ loggedIn, mcpApiKeyConfigured: !!key, name: opts.name, clients: rows }, opts.plain);
   else {
-    console.log(`Agentkit login: ${loggedIn ? "credentials configured" : "no credentials configured"}`);
-    if (!key && needsLocalKey) console.log("Local Agentkit stdio requires a workspace API key.");
-    if (!rows.length) console.log("No MCP clients detected for this scope.");
+    printLine(`Agentkit login: ${loggedIn ? "credentials configured" : "no credentials configured"}`);
+    if (!key && needsLocalKey) printLine("Local Agentkit stdio requires a workspace API key.");
+    if (!rows.length) printLine("No MCP clients detected for this scope.");
     for (const row of rows) {
       const state = row.error ?? (row.transport === "http" ? `configured, HTTP ${row.url}`
         : row.transport === "stdio" ? `configured, stdio args ${JSON.stringify(row.args)}` : row.configured ? "unrecognized registration" : "not configured");
-      console.log(clean(`${row.client} (${row.scope}): ${opts.name} ${state}`));
+      printLine(clean(`${row.client} (${row.scope}): ${opts.name} ${state}`));
     }
   }
 }

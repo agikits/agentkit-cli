@@ -9,6 +9,7 @@ import { AgentkitClient } from "../sdk/client.js";
 import { AgentkitError } from "../sdk/errors.js";
 import type { components } from "../sdk/generated.js";
 import { configPath, readConfig, rememberKey, resolveConfig, writeConfig } from "../shared/config.js";
+import { printLine, printErrorLine } from "../shared/terminal.js";
 import { readStdin } from "./input.js";
 
 type AuthOptions = { browser?: boolean; withToken?: boolean; withSessionToken?: boolean };
@@ -75,10 +76,10 @@ async function browserLogin(client: AgentkitClient, url: string, open: boolean, 
   rememberKey(code.device_code);
   const deadline = performance.now() + code.expires_in * 1000;
   let interval = code.interval;
-  console.error(`Enter code ${code.user_code} at ${verification}`);
+  printErrorLine(`Enter code ${code.user_code} at ${verification}`);
   if (open) {
     try { await openBrowser(complete); }
-    catch { console.error("Could not open a browser. Open the verification URL manually."); }
+    catch { printErrorLine("Could not open a browser. Open the verification URL manually."); }
   }
 
   for (;;) {
@@ -137,7 +138,7 @@ export function registerAuthCommands(
         if (legacy && options.url && !options.key && !opts.withToken && !opts.browser) {
           await writeConfig({ ...await readConfig(), url });
           if (options.json) print({ saved: true });
-          else if (!options.quiet) console.log(`Saved config to ${configPath()}`);
+          else if (!options.quiet) printLine(`Saved config to ${configPath()}`);
           return;
         }
         let account: DeviceToken["account"] | undefined;
@@ -158,8 +159,8 @@ export function registerAuthCommands(
         rememberKey(key);
         await writeConfig({ ...await readConfig(), url, key, keyUrl: url });
         if (options.json) print({ saved: true, ...(account && { account }) });
-        else if (account) console.log(`Signed in to ${cell(account.name)}.`);
-        else if (!options.quiet) console.log(`Saved API key to ${configPath()}`);
+        else if (account) printLine(`Signed in to ${cell(account.name)}.`);
+        else if (!options.quiet) printLine(`Saved API key to ${configPath()}`);
       });
   }
 
@@ -196,7 +197,7 @@ export function registerAuthCommands(
           delete current.sessionUrl;
         }
         await writeConfig(current);
-        if (key && !serverKeyRevoked) console.error("Could not revoke the API key on the server. The saved key was removed locally.");
+        if (key && !serverKeyRevoked) printErrorLine("Could not revoke the API key on the server. The saved key was removed locally.");
         print({ loggedOut: true, serverKeyRevoked });
       });
   }
@@ -215,9 +216,9 @@ export function registerAuthCommands(
       if (globals().json) print({ account, credential, credentialLocation });
       else {
         const locations = { flag: "--key flag", env: "environment variable", config: "config file" };
-        console.log(account ? `Workspace: ${cell(account.name)} (${cell(account.slug)})` : "Workspace: (none selected; the session belongs to several workspaces)");
-        console.log(`Credential: ${cell(credential.source)} (${locations[credentialLocation]})`);
-        console.log(`Scopes: ${credential.scopes.map(cell).join(", ") || "(none)"}`);
+        printLine(account ? `Workspace: ${cell(account.name)} (${cell(account.slug)})` : "Workspace: (none selected; the session belongs to several workspaces)");
+        printLine(`Credential: ${cell(credential.source)} (${locations[credentialLocation]})`);
+        printLine(`Scopes: ${credential.scopes.map(cell).join(", ") || "(none)"}`);
       }
     });
 }

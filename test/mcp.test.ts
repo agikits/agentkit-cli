@@ -15,23 +15,25 @@ const B = "00000000-0000-4000-8000-000000000002";
 const clients: Client[] = [];
 afterEach(async () => { for (const client of clients.splice(0)) await client.close(); });
 
-function setup(options: { write?: boolean; large?: boolean; expired?: boolean } = {}) {
+function setup(options: { write?: boolean; large?: boolean; expired?: boolean; admit?: () => Promise<boolean>; maskToken?: boolean } = {}) {
   const calls: { token: string; url: string; method: string }[] = [];
   const handler = createAgentkitHttpHandler({ resourceUrl: RESOURCE, authorizationServers: ["https://auth.agentkit.test"],
+    admit: options.admit,
     authorize: async token => {
-      if (!["tenant-a", "tenant-b"].includes(token)) return null;
-      const agentId = token === "tenant-a" ? A : B;
+      if (!["tenant-a", "tenant-b", "tenant-a-long-token"].includes(token)) return null;
+      const agentId = token.startsWith("tenant-a") ? A : B;
       return {
         subject: `subject-${token}`, workspaceId: `workspace-${token}`,
         expiresAt: Date.now() / 1000 + (options.expired ? -1 : 3600), agentIds: [agentId],
-        scopes: [MCP_READ_SCOPE, ...(options.write ? [MCP_WRITE_SCOPE] : [])], sensitiveValues: [token],
+        scopes: [MCP_READ_SCOPE, ...(options.write ? [MCP_WRITE_SCOPE] : [])],
+        ...(options.maskToken === false ? {} : { sensitiveValues: [token] }),
         createClient: signal => new AgentkitClient({ key: token, signal, maxResponseBytes: 512 * 1024,
           fetch: async (input, init) => {
             const url = String(input);
             const key = new Headers(init?.headers).get("authorization") ?? "";
             calls.push({ token: key, url, method: init?.method ?? "GET" });
             // Independent fake upstream enforces workspace ownership, not MCP tool behavior.
-            if (key !== `Bearer ${token}` || url.includes(token === "tenant-a" ? B : A)) return Response.json({ error: { code: "AGENT_NOT_FOUND" } }, { status: 404 });
+            if (key !== `Bearer ${token}` || url.includes(token.startsWith("tenant-a") ? B : A)) return Response.json({ error: { code: "AGENT_NOT_FOUND" } }, { status: 404 });
             await new Promise(resolve => setTimeout(resolve, token === "tenant-a" ? 5 : 1));
             if (/\/conversations\?/.test(url)) return Response.json({ data: [{ id: CONVERSATION }], pagination: { cursor: null, hasMore: false } });
             if (url.includes(`/conversations/${CONVERSATION}`)) return Response.json({ data: { id: CONVERSATION, agentId, messages: [] } });
@@ -132,10 +134,32 @@ it("rejects cross-origin, wrong-host, oversized and unsupported HTTP requests", 
   const { handler, calls } = setup();
   expect((await handler.fetch(new Request(RESOURCE, { method: "POST", headers: { origin: "https://attacker.test" } }))).status).toBe(403);
   expect((await handler.fetch(new Request("https://attacker.test/mcp", { method: "POST" }))).status).toBe(421);
+  expect((await handler.fetch(new Request(RESOURCE, { method: "POST", headers: { host: "attacker.test" } }))).status).toBe(421);
+  for (const host of ["mcp.agentkit.test/evil", "user:pass@mcp.agentkit.test", "mcp.agentkit.test?x=1", "mcp.agentkit.test#frag", "mcp.agentkit.test\\evil"]) {
+    expect((await handler.fetch(new Request(RESOURCE, { method: "POST", headers: { host } }))).status, host).toBe(421);
+  }
   expect((await handler.fetch(new Request(RESOURCE))).status).toBe(405);
   const tooLarge = await handler.fetch(new Request(RESOURCE, { method: "POST", headers: { authorization: "Bearer tenant-a", "content-type": "application/json" }, body: "x".repeat(128 * 1024 + 1) }));
   expect(tooLarge.status).toBe(413);
   expect(calls).toHaveLength(0);
+});
+
+it("fails closed when the admission service is unavailable", async () => {
+  const { handler, calls } = setup({ admit: async () => { throw new Error("unavailable"); } });
+  const response = await handler.fetch(new Request(RESOURCE, { method: "POST",
+    headers: { authorization: "Bearer tenant-a", "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+  }));
+  expect(response.status).toBe(503);
+  expect(await response.json()).toEqual({ error: "admission_unavailable" });
+  expect(calls).toHaveLength(0);
+});
+
+it("masks the bearer token even when authorization omits sensitiveValues", async () => {
+  const { connect } = setup({ maskToken: false });
+  const { client } = await connect("tenant-a-long-token");
+  const result = await client.callTool({ name: "agents_get", arguments: { agentId: A } });
+  expect(JSON.stringify(result)).not.toContain("tenant-a-long-token");
 });
 
 it.each([true, false])("installed stdio entry speaks modern=%s with protocol-only stdout", async modern => {

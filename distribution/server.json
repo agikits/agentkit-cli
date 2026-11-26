@@ -8,13 +8,13 @@
     "url": "https://github.com/agikits/agentkit-cli",
     "source": "github"
   },
-  "version": "0.5.1",
+  "version": "0.5.2",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@agikits/agentkit",
-      "version": "0.5.1",
+      "version": "0.5.2",
       "runtimeHint": "npx",
       "packageArguments": [
         { "type": "positional", "value": "mcp", "isRequired": true }

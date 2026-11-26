@@ -1,6 +1,6 @@
 # Contract maintenance
 
-`openapi.json` pins the reviewed API contract. `provenance.json` records its
+`openapi.json` pins the reviewed API contract. `provenance.json` (repository only) records its
 source and SHA-256 with LF line endings, plus any observed deployment baseline. `coverage.json` accounts for each REST operation and its SDK/CLI
 coverage. Tests exercise every wrapper's route/method.
 

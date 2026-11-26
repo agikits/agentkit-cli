@@ -2,6 +2,7 @@ import { McpServer, type CallToolResult, type ServerContext, type ToolCallback }
 import * as z from "zod/v4";
 import { AgentkitClient } from "../sdk/client.js";
 import { AgentkitError } from "../sdk/errors.js";
+import { maskSecretsDeep } from "../shared/secrets.js";
 import { VERSION } from "../sdk/version.js";
 import { aiFields, designFields, securityFields, notificationFields } from "./patch-schemas.js";
 import { sourceEditError } from "../shared/source-edit.js";
@@ -78,9 +79,11 @@ export function createAgentkitMcpServer(options: McpOptions): McpServer {
   });
 
   function result(data: unknown): CallToolResult {
-    let text = JSON.stringify({ data });
-    // Only this caller's credentials are masked. Never keep a process-wide secret set in HTTP.
-    for (const secret of options.sensitiveValues ?? []) if (secret) text = text.split(secret).join("[REDACTED]");
+    // Mask before serialization so secrets containing quotes, backslashes or
+    // newlines are still matched after JSON escaping.
+    const text = JSON.stringify({
+      data: maskSecretsDeep(data, options.sensitiveValues ?? []),
+    });
     if (new TextEncoder().encode(text).byteLength > MAX_OUTPUT_BYTES) {
       return failure("RESULT_TOO_LARGE", "Result exceeds 64 KiB. Use a smaller page or a narrower query.");
     }
